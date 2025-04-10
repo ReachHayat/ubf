@@ -117,19 +117,24 @@ const AdminUsers = () => {
     if (!selectedUser || !selectedRole) return;
 
     try {
+      // First delete existing roles
       const { error: deleteError } = await supabase
-        .rpc('delete_user_roles', { user_id_param: selectedUser.id })
+        .rpc('delete_user_roles', { 
+          user_id_param: selectedUser.id 
+        })
         .single();
 
-      if (deleteError && !deleteError.message.includes('No rows returned')) {
+      if (deleteError) {
         throw deleteError;
       }
 
+      // Then insert the new role
       const { error: insertError } = await supabase
         .rpc('insert_user_role', { 
           user_id_param: selectedUser.id,
           role_param: selectedRole
-        });
+        })
+        .single();
 
       if (insertError) {
         throw insertError;
