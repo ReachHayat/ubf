@@ -8,7 +8,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Inbox,
-  LogOut
+  LogOut,
+  ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
@@ -31,6 +32,7 @@ interface SidebarProps {
 
 const Sidebar = ({ collapsed = false, onToggle }: SidebarProps) => {
   const location = useLocation();
+  const isAdmin = true; // This would normally be determined by user role
 
   return (
     <div 
@@ -46,7 +48,7 @@ const Sidebar = ({ collapsed = false, onToggle }: SidebarProps) => {
               <div className="bg-primary text-primary-foreground p-1.5 rounded-lg">
                 <BookOpen className="h-5 w-5" />
               </div>
-              <h2 className="text-2xl font-bold">CodeLingo</h2>
+              <h2 className="text-xl font-bold">UBF</h2>
             </Link>
           )}
           {collapsed && (
@@ -92,6 +94,26 @@ const Sidebar = ({ collapsed = false, onToggle }: SidebarProps) => {
                 </li>
               );
             })}
+            
+            {/* Admin Panel Link */}
+            {isAdmin && (
+              <li>
+                <Link
+                  to="/admin"
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200",
+                    "hover:bg-accent/50",
+                    location.pathname.startsWith("/admin")
+                      ? "bg-accent text-accent-foreground" 
+                      : "text-muted-foreground",
+                    collapsed && "justify-center px-2"
+                  )}
+                >
+                  <ShieldCheck className="h-5 w-5" />
+                  {!collapsed && <span>Admin</span>}
+                </Link>
+              </li>
+            )}
           </ul>
         </nav>
 

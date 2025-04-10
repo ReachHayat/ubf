@@ -14,6 +14,7 @@ import Community from "./pages/Community";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import Inbox from "./pages/Inbox";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -21,6 +22,9 @@ const App = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
+    // Set document title
+    document.title = "The Ultimate Brand Framework";
+    
     const mainContent = document.getElementById("main-content");
     if (mainContent) {
       if (sidebarCollapsed) {
@@ -48,7 +52,7 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light" storageKey="codelingo-theme">
+      <ThemeProvider defaultTheme="light" storageKey="ubf-theme">
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -65,6 +69,7 @@ const App = () => {
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/inbox" element={<Inbox />} />
+                    <Route path="/admin/*" element={<Admin />} />
                   </Routes>
                 </div>
               </main>
