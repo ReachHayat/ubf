@@ -67,10 +67,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const fetchUserRoles = async (userId: string) => {
     try {
+      // Use the REST API directly rather than the typed client 
+      // to access the users_with_roles view
       const { data, error } = await supabase
-        .from("users_with_roles")
-        .select("roles")
-        .eq("id", userId)
+        .from('users_with_roles')
+        .select('*')
+        .eq('id', userId)
         .single();
 
       if (error) {

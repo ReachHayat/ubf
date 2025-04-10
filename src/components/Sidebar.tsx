@@ -1,10 +1,9 @@
-
 import { 
   LayoutDashboard, 
   BookOpen, 
   FileCheck, 
   Users, 
-  Settings as SettingsIcon,
+  Settings,
   ChevronLeft,
   ChevronRight,
   Inbox,
@@ -35,11 +34,8 @@ const Sidebar = ({ collapsed = false, onToggle }: SidebarProps) => {
   const location = useLocation();
   const { user, signOut, isAdmin, roles } = useAuth();
   
-  // If we get to this component and user is not logged in, we might be rendering
-  // before auth check, so we'll return null and let the protected route handle it
   if (!user) return null;
 
-  // Get user initials for avatar fallback
   const getInitials = () => {
     const name = user?.user_metadata?.full_name || 'User';
     return name
@@ -111,7 +107,6 @@ const Sidebar = ({ collapsed = false, onToggle }: SidebarProps) => {
               );
             })}
             
-            {/* Admin Panel Link */}
             {isAdmin() && (
               <li>
                 <Link

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   Table,
@@ -80,15 +79,14 @@ const AdminUsers = () => {
       }
 
       if (data) {
-        // Transform data to match the User interface
         const formattedUsers: User[] = data.map((user: any) => ({
           id: user.id,
           name: user.name || user.full_name || 'Unknown',
           email: user.email || '',
           full_name: user.full_name || '',
           roles: user.roles || ['student'],
-          created_at: new Date().toISOString(), // We don't have this from the view
-          status: 'active', // Assuming all users are active
+          created_at: new Date().toISOString(),
+          status: 'active',
         }));
         setUsers(formattedUsers);
       }
@@ -119,29 +117,24 @@ const AdminUsers = () => {
     if (!selectedUser || !selectedRole) return;
 
     try {
-      // First, delete existing roles for this user
       const { error: deleteError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', selectedUser.id);
+        .rpc('delete_user_roles', { user_id_param: selectedUser.id })
+        .single();
 
-      if (deleteError) {
+      if (deleteError && !deleteError.message.includes('No rows returned')) {
         throw deleteError;
       }
 
-      // Then insert the new role
       const { error: insertError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: selectedUser.id,
-          role: selectedRole,
+        .rpc('insert_user_role', { 
+          user_id_param: selectedUser.id,
+          role_param: selectedRole
         });
 
       if (insertError) {
         throw insertError;
       }
 
-      // Update local state
       setUsers(users.map(user => 
         user.id === selectedUser.id 
           ? { ...user, roles: [selectedRole] }
@@ -167,8 +160,6 @@ const AdminUsers = () => {
   const confirmDeleteUser = async () => {
     if (!selectedUser) return;
 
-    // This is a placeholder - actual user deletion would require admin API access
-    // In a real app, you might want to deactivate the user instead of deleting
     toast({
       title: "User deletion",
       description: "User deletion requires admin API access. This is just a demonstration.",
@@ -281,7 +272,6 @@ const AdminUsers = () => {
           </Table>
         </div>
 
-        {/* Edit User Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -346,7 +336,6 @@ const AdminUsers = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Delete User Dialog */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <DialogContent>
             <DialogHeader>

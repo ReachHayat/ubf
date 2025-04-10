@@ -28,10 +28,8 @@ const ProtectedRoute = ({
   }
 
   // If role is required and user doesn't have it
-  if (requiredRole) {
-    if (!roles.includes(requiredRole)) {
-      return <Navigate to="/" replace />;
-    }
+  if (requiredRole && !roles.includes(requiredRole)) {
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;
