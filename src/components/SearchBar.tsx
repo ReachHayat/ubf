@@ -85,7 +85,7 @@ const SearchBar = ({ className }: SearchBarProps) => {
         </Button>
       </div>
       
-      <CommandDialog open={open} onOpenChange={setOpen} className="overflow-hidden border shadow-xl">
+      <CommandDialog open={open} onOpenChange={setOpen}>
         <div className="flex items-center border-b px-3">
           <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
           <CommandInput 
