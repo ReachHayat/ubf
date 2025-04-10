@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import {
   Table,
@@ -117,24 +118,23 @@ const AdminUsers = () => {
     if (!selectedUser || !selectedRole) return;
 
     try {
-      // First delete existing roles
+      // First delete existing roles - using direct table operations instead of RPC
       const { error: deleteError } = await supabase
-        .rpc('delete_user_roles', { 
-          user_id_param: selectedUser.id 
-        })
-        .single();
+        .from('user_roles')
+        .delete()
+        .eq('user_id', selectedUser.id);
 
       if (deleteError) {
         throw deleteError;
       }
 
-      // Then insert the new role
+      // Then insert the new role - using direct table operations
       const { error: insertError } = await supabase
-        .rpc('insert_user_role', { 
-          user_id_param: selectedUser.id,
-          role_param: selectedRole
-        })
-        .single();
+        .from('user_roles')
+        .insert({
+          user_id: selectedUser.id,
+          role: selectedRole
+        });
 
       if (insertError) {
         throw insertError;
