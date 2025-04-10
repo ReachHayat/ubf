@@ -16,9 +16,15 @@ import {
   Linkedin,
   Twitter,
   ExternalLink,
-  Pencil
+  Pencil,
+  Medal,
+  Trophy,
+  Target,
+  Zap,
+  Star
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 const userProfile = {
   name: "John Doe",
@@ -52,6 +58,57 @@ const userProfile = {
       title: "Frontend Web Development",
       issueDate: "March 2024",
       issuer: "CodeLingo"
+    }
+  ],
+  achievements: [
+    {
+      id: 1,
+      title: "Perfect Score",
+      description: "Achieved 100% on an assignment",
+      icon: <Award />,
+      color: "bg-yellow-500",
+      date: "April 2, 2024",
+      unlocked: true
+    },
+    {
+      id: 2,
+      title: "Fast Learner",
+      description: "Completed 5 lessons in a day",
+      icon: <Zap />,
+      color: "bg-blue-500",
+      date: "March 28, 2024",
+      unlocked: true
+    },
+    {
+      id: 3,
+      title: "Code Maestro",
+      description: "Submitted 10 perfect assignments",
+      icon: <Trophy />,
+      color: "bg-purple-500",
+      date: null,
+      progress: 4,
+      total: 10,
+      unlocked: false
+    },
+    {
+      id: 4,
+      title: "Helping Hand",
+      description: "Answered 25 questions in the community",
+      icon: <Target />,
+      color: "bg-green-500",
+      date: null,
+      progress: 12,
+      total: 25,
+      unlocked: false
+    },
+    {
+      id: 5,
+      title: "Course Champion",
+      description: "Completed all courses in a category",
+      icon: <Medal />,
+      color: "bg-orange-500",
+      date: null,
+      unlocked: false
     }
   ],
   recentActivity: [
@@ -170,12 +227,18 @@ const Profile = () => {
             <TabsList className="mb-4">
               <TabsTrigger value="skills">Skills</TabsTrigger>
               <TabsTrigger value="certificates">Certificates</TabsTrigger>
+              <TabsTrigger value="achievements">Achievements</TabsTrigger>
               <TabsTrigger value="activity">Recent Activity</TabsTrigger>
             </TabsList>
             
             <TabsContent value="skills">
               <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">My Skills</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">My Skills</h3>
+                  <Button variant="outline" size="sm">
+                    Add Skill
+                  </Button>
+                </div>
                 <div className="space-y-6">
                   {userProfile.skills.map((skill, index) => (
                     <div key={index}>
@@ -223,6 +286,48 @@ const Profile = () => {
                     <Button variant="outline" className="mt-4">Browse Courses</Button>
                   </div>
                 )}
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="achievements">
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Achievements</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {userProfile.achievements.map((achievement) => (
+                    <div 
+                      key={achievement.id} 
+                      className={`p-4 border rounded-lg ${!achievement.unlocked ? "opacity-70" : ""}`}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className={`p-3 rounded-full ${achievement.color} text-white`}>
+                          {achievement.icon}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium">{achievement.title}</h4>
+                            {achievement.unlocked && <Badge>Unlocked</Badge>}
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">{achievement.description}</p>
+                          
+                          {achievement.unlocked && achievement.date && (
+                            <p className="text-xs text-muted-foreground mt-2">Achieved on {achievement.date}</p>
+                          )}
+                          
+                          {!achievement.unlocked && achievement.progress !== undefined && (
+                            <div className="mt-2">
+                              <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                <span>Progress</span>
+                                <span>{achievement.progress}/{achievement.total}</span>
+                              </div>
+                              <Progress value={(achievement.progress / achievement.total) * 100} className="h-1" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </Card>
             </TabsContent>
             

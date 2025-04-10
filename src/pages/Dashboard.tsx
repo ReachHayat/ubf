@@ -3,6 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
+import SearchBar from "@/components/SearchBar";
+import NotificationsPopover from "@/components/NotificationsPopover";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const coursesInProgress = [
@@ -111,32 +113,19 @@ const topMentors = [
 const Dashboard = () => {
   return (
     <div className="space-y-8">
-      <header className="flex justify-between items-center">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-bold">Welcome back, John Doe!</h1>
           <p className="text-muted-foreground">Track your learning progress</p>
         </div>
-        <div className="flex items-center space-x-4">
-          <Button variant="outline" className="rounded-full">
-            Unlock Access
-          </Button>
-          <ThemeToggle />
+        <div className="flex items-center flex-wrap gap-2">
+          <SearchBar />
+          <div className="flex items-center space-x-2">
+            <NotificationsPopover />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
-
-      <Card className="p-6 bg-secondary/30">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/20">
-            <Button variant="ghost" size="icon" className="h-4 w-4 text-primary">
-              🔓
-            </Button>
-          </div>
-          <p className="text-sm">Unlock access to all materials and communities in this category</p>
-          <div className="ml-auto">
-            <Button>Unlock Access</Button>
-          </div>
-        </div>
-      </Card>
 
       <div>
         <div className="flex items-center justify-between mb-4">

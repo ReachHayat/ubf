@@ -14,12 +14,16 @@ import {
   User, 
   Mail,
   ShieldCheck,
-  SaveIcon,
+  Save as SaveIcon,
   Smartphone,
   BookOpen,
   Eye,
   Volume2,
-  Clock
+  Clock,
+  Github,
+  Twitter,
+  Linkedin,
+  MessageSquare
 } from "lucide-react";
 import {
   Select,
@@ -326,11 +330,5 @@ const Settings = () => {
     </div>
   );
 };
-
-// Fix for missing imports from the code above
-const Github = () => <div className="h-5 w-5"></div>;
-const Twitter = () => <div className="h-5 w-5"></div>;
-const Linkedin = () => <div className="h-5 w-5"></div>;
-const MessageSquare = () => <div className="h-5 w-5"></div>;
 
 export default Settings;
