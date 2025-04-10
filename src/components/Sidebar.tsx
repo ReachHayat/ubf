@@ -4,7 +4,7 @@ import {
   BookOpen, 
   FileCheck, 
   Users, 
-  Settings, 
+  Settings as SettingsIcon,
   ChevronLeft,
   ChevronRight,
   Inbox,
@@ -13,8 +13,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
@@ -32,7 +33,22 @@ interface SidebarProps {
 
 const Sidebar = ({ collapsed = false, onToggle }: SidebarProps) => {
   const location = useLocation();
-  const isAdmin = true; // This would normally be determined by user role
+  const { user, signOut, isAdmin, roles } = useAuth();
+  
+  // If we get to this component and user is not logged in, we might be rendering
+  // before auth check, so we'll return null and let the protected route handle it
+  if (!user) return null;
+
+  // Get user initials for avatar fallback
+  const getInitials = () => {
+    const name = user?.user_metadata?.full_name || 'User';
+    return name
+      .split(' ')
+      .map((n: string) => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
 
   return (
     <div 
@@ -96,7 +112,7 @@ const Sidebar = ({ collapsed = false, onToggle }: SidebarProps) => {
             })}
             
             {/* Admin Panel Link */}
-            {isAdmin && (
+            {isAdmin() && (
               <li>
                 <Link
                   to="/admin"
@@ -122,7 +138,7 @@ const Sidebar = ({ collapsed = false, onToggle }: SidebarProps) => {
             <div className="flex justify-center">
               <Link to="/profile">
                 <Avatar className="h-10 w-10 cursor-pointer">
-                  <AvatarFallback>JD</AvatarFallback>
+                  <AvatarFallback>{getInitials()}</AvatarFallback>
                 </Avatar>
               </Link>
             </div>
@@ -131,15 +147,23 @@ const Sidebar = ({ collapsed = false, onToggle }: SidebarProps) => {
               <Link to="/profile" className="block">
                 <div className="flex items-center gap-3 px-4 py-3">
                   <Avatar className="h-10 w-10 cursor-pointer">
-                    <AvatarFallback>JD</AvatarFallback>
+                    <AvatarFallback>{getInitials()}</AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium">John Doe</span>
-                    <span className="text-xs text-muted-foreground">Pro Member</span>
+                    <span className="text-sm font-medium">
+                      {user?.user_metadata?.full_name || 'User'}
+                    </span>
+                    <span className="text-xs text-muted-foreground capitalize">
+                      {roles[0] || "Student"}
+                    </span>
                   </div>
                 </div>
               </Link>
-              <Button variant="ghost" className="w-full mt-2 text-muted-foreground justify-start">
+              <Button 
+                variant="ghost" 
+                className="w-full mt-2 text-muted-foreground justify-start"
+                onClick={signOut}
+              >
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </Button>
