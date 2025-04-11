@@ -27,7 +27,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -37,52 +36,11 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-
-interface Message {
-  id: string;
-  user_id: string;
-  channel_id: string;
-  content: string;
-  attachments?: string[];
-  reactions?: {emoji: string, count: number}[];
-  created_at: string;
-  user: {
-    id: string;
-    email: string;
-    full_name: string;
-    avatar_url?: string;
-  };
-}
-
-interface Channel {
-  id: string;
-  name: string;
-  type: "text" | "voice";
-  created_at: string;
-  unread_count?: number;
-}
-
-interface DirectMessage {
-  id: string;
-  user: {
-    id: string;
-    email: string;
-    full_name: string;
-    avatar_url?: string;
-    online: boolean;
-  };
-  unread_count?: number;
-}
+import { useCommunity } from "@/hooks/useCommunity";
 
 const Community = () => {
   const { user, isAdmin } = useAuth();
   const [messageText, setMessageText] = useState("");
-  const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
-  const [activeDM, setActiveDM] = useState<DirectMessage | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
-  const [activeUsers, setActiveUsers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [newChannelDialogOpen, setNewChannelDialogOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
@@ -91,72 +49,83 @@ const Community = () => {
   const [editChannelName, setEditChannelName] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  useEffect(() => {
-    // Fetch channels
-    fetchChannels();
-    
-    // Fetch active users
-    fetchActiveUsers();
-    
-    // Set up realtime subscription for messages
-    const channel = supabase
-      .channel('public:messages')
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'messages' 
-      }, (payload) => {
-        console.log('New message received!', payload);
-        fetchMessages(activeChannel?.id || '');
-      })
-      .subscribe();
-    
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-  
-  useEffect(() => {
-    if (activeChannel) {
-      fetchMessages(activeChannel.id);
-      setActiveDM(null);
-    }
-  }, [activeChannel]);
+  const { 
+    channels,
+    activeChannel,
+    setActiveChannel,
+    activeDM,
+    setActiveDM,
+    messages,
+    directMessages,
+    activeUsers,
+    loading,
+    sendMessage,
+    createChannel,
+    updateChannel,
+    deleteChannel,
+    getInitials
+  } = useCommunity();
   
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
   
-  const fetchChannels = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('channels')
-        .select('*')
-        .order('name');
-        
-      if (error) throw error;
-      
-      if (data) {
-        setChannels(data);
-        // Set first channel as active if none is selected
-        if (!activeChannel && data.length > 0) {
-          setActiveChannel(data[0]);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching channels:', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to load channels",
-        description: "Please try again or contact support if the issue persists."
-      });
+  const handleSendMessage = async () => {
+    if (messageText.trim()) {
+      await sendMessage(messageText);
+      setMessageText("");
     }
   };
   
-  const fetchDirectMessages = async () => {
-    // This would typically fetch your DM conversations from the database
-    // For now, we're using placeholder data
-    setDirectMessages([
+  const handleCreateChannel = async () => {
+    if (!newChannelName.trim()) return;
+    
+    const newChannel = await createChannel(newChannelName);
+    if (newChannel) {
+      setNewChannelName("");
+      setNewChannelDialogOpen(false);
+      setActiveChannel(newChannel);
+    }
+  };
+  
+  const handleEditChannel = async () => {
+    if (!editChannelName.trim() || !editChannelId) return;
+    
+    const updatedChannel = await updateChannel(editChannelId, editChannelName);
+    if (updatedChannel) {
+      setEditChannelDialogOpen(false);
+      if (activeChannel?.id === editChannelId) {
+        setActiveChannel(updatedChannel);
+      }
+    }
+  };
+  
+  const handleDeleteChannel = async (channelId: string) => {
+    const success = await deleteChannel(channelId);
+    if (success && activeChannel?.id === channelId) {
+      setActiveChannel(channels[0] || null);
+    }
+  };
+  
+  const openEditChannelDialog = (channel: typeof activeChannel) => {
+    if (!channel) return;
+    setEditChannelId(channel.id);
+    setEditChannelName(channel.name);
+    setEditChannelDialogOpen(true);
+  };
+  
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+  
+  const filteredChannels = channels.filter(channel => 
+    channel.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Mock direct messages for now
+  useEffect(() => {
+    // Simulate fetching direct messages
+    const mockDirectMessages = [
       { 
         id: '1',
         user: {
@@ -179,197 +148,10 @@ const Community = () => {
         },
         unread_count: 0
       }
-    ]);
-  };
-  
-  const fetchMessages = async (channelId: string) => {
-    if (!channelId) return;
+    ];
     
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          *,
-          user:users(id, email, full_name, avatar_url)
-        `)
-        .eq('channel_id', channelId)
-        .order('created_at');
-        
-      if (error) throw error;
-      
-      if (data) {
-        setMessages(data);
-      }
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to load messages",
-        description: "Please try again or contact support if the issue persists."
-      });
-    }
-  };
-  
-  const fetchActiveUsers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users_online')
-        .select('*');
-        
-      if (error) throw error;
-      
-      if (data) {
-        setActiveUsers(data);
-      } else {
-        // Fallback to mock data if no online users table exists yet
-        setActiveUsers([
-          { id: 1, name: "Guy Hawkins", avatar: "GH", role: "Instructor" },
-          { id: 2, name: "Crystal Lucas", avatar: "CL", role: "Student" },
-          { id: 3, name: "Melissa Stevens", avatar: "MS", role: "Student" },
-          { id: 4, name: "John Doe", avatar: "JD", role: "Student" },
-          { id: 5, name: "Peter Russell", avatar: "PR", role: "Instructor" },
-        ]);
-      }
-    } catch (error) {
-      console.error('Error fetching active users:', error);
-    }
-  };
-  
-  const sendMessage = async () => {
-    if (!messageText.trim() || !user || !activeChannel) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          content: messageText,
-          user_id: user.id,
-          channel_id: activeChannel.id
-        })
-        .select();
-        
-      if (error) throw error;
-      
-      setMessageText("");
-      fetchMessages(activeChannel.id);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to send message",
-        description: "Please try again or contact support if the issue persists."
-      });
-    }
-  };
-  
-  const handleCreateChannel = async () => {
-    if (!newChannelName.trim()) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('channels')
-        .insert({
-          name: newChannelName,
-          type: 'text'
-        })
-        .select();
-        
-      if (error) throw error;
-      
-      setNewChannelName("");
-      setNewChannelDialogOpen(false);
-      fetchChannels();
-      toast({
-        title: "Channel created",
-        description: `#${newChannelName} has been created successfully.`
-      });
-    } catch (error) {
-      console.error('Error creating channel:', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to create channel",
-        description: "Please try again or contact support if the issue persists."
-      });
-    }
-  };
-  
-  const handleEditChannel = async () => {
-    if (!editChannelName.trim() || !editChannelId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('channels')
-        .update({ name: editChannelName })
-        .eq('id', editChannelId)
-        .select();
-        
-      if (error) throw error;
-      
-      setEditChannelDialogOpen(false);
-      fetchChannels();
-      toast({
-        title: "Channel updated",
-        description: `Channel has been renamed to #${editChannelName}.`
-      });
-    } catch (error) {
-      console.error('Error updating channel:', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to update channel",
-        description: "Please try again or contact support if the issue persists."
-      });
-    }
-  };
-  
-  const handleDeleteChannel = async (channelId: string) => {
-    try {
-      const { error } = await supabase
-        .from('channels')
-        .delete()
-        .eq('id', channelId);
-        
-      if (error) throw error;
-      
-      fetchChannels();
-      if (activeChannel?.id === channelId) {
-        setActiveChannel(null);
-      }
-      toast({
-        title: "Channel deleted",
-        description: "The channel has been deleted successfully."
-      });
-    } catch (error) {
-      console.error('Error deleting channel:', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to delete channel",
-        description: "Please try again or contact support if the issue persists."
-      });
-    }
-  };
-  
-  const openEditChannelDialog = (channel: Channel) => {
-    setEditChannelId(channel.id);
-    setEditChannelName(channel.name);
-    setEditChannelDialogOpen(true);
-  };
-  
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-  
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
-  };
-  
-  const filteredChannels = channels.filter(channel => 
-    channel.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    setActiveDM(mockDirectMessages[0]);
+  }, []);
   
   return (
     <div className="space-y-8">
@@ -426,58 +208,68 @@ const Community = () => {
                   )}
                 </div>
                 <div className="space-y-1 max-h-[calc(100vh-360px)] overflow-y-auto">
-                  {filteredChannels.map((channel) => (
-                    <div key={channel.id} className="flex items-center gap-1">
-                      <Button
-                        variant={activeChannel?.id === channel.id ? "secondary" : "ghost"}
-                        className="w-full justify-start text-sm h-9 mr-1"
-                        onClick={() => setActiveChannel(channel)}
-                      >
-                        <Hash className="h-4 w-4 mr-2" />
-                        <span className="truncate">{channel.name}</span>
-                        {channel.unread_count && channel.unread_count > 0 && (
-                          <Badge variant="destructive" className="ml-auto">
-                            {channel.unread_count}
-                          </Badge>
-                        )}
-                      </Button>
-                      
-                      {isAdmin() && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditChannelDialog(channel)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit Channel
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeleteChannel(channel.id)}>
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete Channel
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
+                  {loading.channels ? (
+                    <div className="flex justify-center py-4">
+                      <p className="text-sm text-muted-foreground">Loading channels...</p>
                     </div>
-                  ))}
+                  ) : filteredChannels.length > 0 ? (
+                    filteredChannels.map((channel) => (
+                      <div key={channel.id} className="flex items-center gap-1">
+                        <Button
+                          variant={activeChannel?.id === channel.id ? "secondary" : "ghost"}
+                          className="w-full justify-start text-sm h-9 mr-1"
+                          onClick={() => setActiveChannel(channel)}
+                        >
+                          <Hash className="h-4 w-4 mr-2" />
+                          <span className="truncate">{channel.name}</span>
+                          {channel.unread_count && channel.unread_count > 0 && (
+                            <Badge variant="destructive" className="ml-auto">
+                              {channel.unread_count}
+                            </Badge>
+                          )}
+                        </Button>
+                        
+                        {isAdmin() && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditChannelDialog(channel)}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit Channel
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDeleteChannel(channel.id)}>
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Channel
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex justify-center py-4">
+                      <p className="text-sm text-muted-foreground">No channels found</p>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
               
               <TabsContent value="direct" className="mt-0">
                 <div className="space-y-1 max-h-[calc(100vh-360px)] overflow-y-auto">
-                  {directMessages.map((dm) => (
+                  {directMessages.length > 0 ? directMessages.map((dm) => (
                     <Button
                       key={dm.id}
-                      variant="ghost"
+                      variant={activeDM?.id === dm.id ? "secondary" : "ghost"}
                       className="w-full justify-start text-sm h-9"
                       onClick={() => setActiveDM(dm)}
                     >
                       <div className="relative">
                         <Avatar className="h-6 w-6 mr-2">
-                          <AvatarFallback>{getInitials(dm.user.full_name)}</AvatarFallback>
+                          <AvatarFallback>{getInitials(dm.user.full_name || '')}</AvatarFallback>
                         </Avatar>
                         {dm.user.online && (
                           <span className="absolute bottom-0 right-1 block h-2 w-2 rounded-full bg-green-500 ring-1 ring-background"></span>
@@ -490,7 +282,11 @@ const Community = () => {
                         </Badge>
                       )}
                     </Button>
-                  ))}
+                  )) : (
+                    <div className="flex justify-center py-4">
+                      <p className="text-sm text-muted-foreground">No direct messages</p>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             </Tabs>
@@ -541,15 +337,19 @@ const Community = () => {
                 </div>
                 
                 <div className="flex-1 p-4 overflow-y-auto space-y-4">
-                  {messages.length > 0 ? (
+                  {loading.messages ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                      <p className="text-muted-foreground">Loading messages...</p>
+                    </div>
+                  ) : messages.length > 0 ? (
                     messages.map((message) => (
                       <div key={message.id} className="flex gap-3">
                         <Avatar>
-                          <AvatarFallback>{getInitials(message.user.full_name)}</AvatarFallback>
+                          <AvatarFallback>{getInitials(message.user?.full_name || 'User')}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{message.user.full_name}</span>
+                            <span className="font-medium">{message.user?.full_name || 'Unknown User'}</span>
                             <span className="text-xs text-muted-foreground">
                               {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
@@ -596,7 +396,7 @@ const Community = () => {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
-                            sendMessage();
+                            handleSendMessage();
                           }
                         }}
                       />
@@ -616,7 +416,7 @@ const Community = () => {
                           size="sm" 
                           className="flex items-center gap-2"
                           disabled={messageText.trim() === ""}
-                          onClick={sendMessage}
+                          onClick={handleSendMessage}
                         >
                           <Send className="h-4 w-4" />
                           Send
@@ -647,20 +447,30 @@ const Community = () => {
             </div>
             
             <div className="space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto">
-              {activeUsers.map((user) => (
-                <div key={user.id} className="flex items-center gap-3">
-                  <div className="relative">
-                    <Avatar>
-                      <AvatarFallback>{user.avatar || getInitials(user.name || '')}</AvatarFallback>
-                    </Avatar>
-                    <span className="absolute bottom-0 right-0 block h-2 w-2 rounded-full bg-green-500 ring-1 ring-background"></span>
-                  </div>
-                  <div>
-                    <div className="font-medium">{user.name}</div>
-                    <div className="text-xs text-muted-foreground">{user.role}</div>
-                  </div>
+              {loading.users ? (
+                <div className="flex justify-center py-4">
+                  <p className="text-sm text-muted-foreground">Loading users...</p>
                 </div>
-              ))}
+              ) : activeUsers.length > 0 ? (
+                activeUsers.map((user) => (
+                  <div key={user.id} className="flex items-center gap-3">
+                    <div className="relative">
+                      <Avatar>
+                        <AvatarFallback>{user.avatar || getInitials(user.name || '')}</AvatarFallback>
+                      </Avatar>
+                      <span className="absolute bottom-0 right-0 block h-2 w-2 rounded-full bg-green-500 ring-1 ring-background"></span>
+                    </div>
+                    <div>
+                      <div className="font-medium">{user.name}</div>
+                      <div className="text-xs text-muted-foreground">{user.role}</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex justify-center py-4">
+                  <p className="text-sm text-muted-foreground">No active users</p>
+                </div>
+              )}
             </div>
           </Card>
         </div>

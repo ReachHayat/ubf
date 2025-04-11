@@ -9,6 +9,52 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      channels: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channels_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "debug_user_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channels_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_online"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channels_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_with_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feedback: {
         Row: {
           content: string | null
@@ -26,6 +72,65 @@ export type Database = {
           id?: number
         }
         Relationships: []
+      }
+      messages: {
+        Row: {
+          attachments: string[] | null
+          channel_id: string
+          content: string
+          created_at: string
+          id: string
+          reactions: Json | null
+          user_id: string
+        }
+        Insert: {
+          attachments?: string[] | null
+          channel_id: string
+          content: string
+          created_at?: string
+          id?: string
+          reactions?: Json | null
+          user_id: string
+        }
+        Update: {
+          attachments?: string[] | null
+          channel_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          reactions?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "debug_user_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_online"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_with_roles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscriptions: {
         Row: {
@@ -138,6 +243,13 @@ export type Database = {
             foreignKeyName: "user_roles_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "users_online"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users_with_roles"
             referencedColumns: ["id"]
           },
@@ -230,6 +342,17 @@ export type Database = {
           id: string | null
           role: Database["public"]["Enums"]["user_role"] | null
           role_assigned_at: string | null
+        }
+        Relationships: []
+      }
+      users_online: {
+        Row: {
+          avatar: string | null
+          email: string | null
+          id: string | null
+          name: string | null
+          online: boolean | null
+          role: string | null
         }
         Relationships: []
       }
