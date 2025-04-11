@@ -1,6 +1,9 @@
-
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -21,23 +24,35 @@ import {
   Trophy,
   Target,
   Zap,
-  Star
+  Star,
+  Save
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
 
-const userProfile = {
-  name: "John Doe",
-  username: "johndoe",
-  email: "john.doe@example.com",
-  avatar: "JD",
+const profileFormSchema = z.object({
+  full_name: z.string().min(2, "Name must be at least 2 characters.").optional(),
+  bio: z.string().optional(),
+  location: z.string().optional(),
+  github: z.string().optional(),
+  linkedin: z.string().optional(),
+  twitter: z.string().optional(),
+});
+
+type ProfileFormValues = z.infer<typeof profileFormSchema>;
+
+const defaultUserProfile = {
+  bio: "Frontend developer passionate about creating beautiful user experiences. Currently improving my Angular and React skills.",
   location: "San Francisco, CA",
   joinDate: "January 2024",
-  bio: "Frontend developer passionate about creating beautiful user experiences. Currently improving my Angular and React skills.",
   socialLinks: {
-    github: "github.com/johndoe",
-    linkedin: "linkedin.com/in/johndoe",
-    twitter: "twitter.com/johndoe"
+    github: "github.com/username",
+    linkedin: "linkedin.com/in/username",
+    twitter: "twitter.com/username"
   },
   stats: {
     coursesCompleted: 3,
@@ -120,6 +135,51 @@ const userProfile = {
 };
 
 const Profile = () => {
+  const { user, updateUserProfile } = useAuth();
+  const [editMode, setEditMode] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const userProfile = {
+    ...defaultUserProfile,
+    name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User',
+    username: user?.email?.split('@')[0] || 'username',
+    email: user?.email || 'email@example.com',
+    avatar: user?.user_metadata?.full_name ? user?.user_metadata?.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) : 'US',
+  };
+
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: {
+      full_name: user?.user_metadata?.full_name || '',
+      bio: defaultUserProfile.bio,
+      location: defaultUserProfile.location,
+      github: defaultUserProfile.socialLinks.github,
+      linkedin: defaultUserProfile.socialLinks.linkedin,
+      twitter: defaultUserProfile.socialLinks.twitter,
+    },
+  });
+
+  useEffect(() => {
+    if (user) {
+      form.setValue('full_name', user.user_metadata?.full_name || '');
+    }
+  }, [user, form]);
+
+  const onSubmit = async (data: ProfileFormValues) => {
+    setIsSubmitting(true);
+    
+    try {
+      await updateUserProfile({
+        full_name: data.full_name
+      });
+      setEditMode(false);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <header>
@@ -128,61 +188,144 @@ const Profile = () => {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Info Card */}
         <Card className="p-6 lg:col-span-1">
           <div className="flex flex-col items-center text-center mb-6">
             <div className="relative">
               <Avatar className="h-24 w-24 mb-4">
                 <AvatarFallback className="text-2xl">{userProfile.avatar}</AvatarFallback>
               </Avatar>
-              <Button variant="outline" size="icon" className="absolute bottom-0 right-0 rounded-full h-8 w-8">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="absolute bottom-0 right-0 rounded-full h-8 w-8"
+                onClick={() => setEditMode(!editMode)}
+              >
                 <Pencil className="h-4 w-4" />
               </Button>
             </div>
             <h2 className="text-xl font-bold">{userProfile.name}</h2>
             <p className="text-muted-foreground">@{userProfile.username}</p>
-            <Button variant="outline" className="mt-4">Edit Profile</Button>
+            {!editMode && (
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={() => setEditMode(true)}
+              >
+                Edit Profile
+              </Button>
+            )}
           </div>
           
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Mail className="h-5 w-5 text-muted-foreground" />
-              <span>{userProfile.email}</span>
+          {editMode ? (
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="full_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Your full name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="bio"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bio</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Tell us about yourself" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Your location" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="pt-4 flex gap-2">
+                  <Button 
+                    type="submit" 
+                    className="flex-1"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>Saving...</>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setEditMode(false)}
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Mail className="h-5 w-5 text-muted-foreground" />
+                <span>{userProfile.email}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <MapPin className="h-5 w-5 text-muted-foreground" />
+                <span>{userProfile.location}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Calendar className="h-5 w-5 text-muted-foreground" />
+                <span>Joined {userProfile.joinDate}</span>
+              </div>
+              
+              <div className="mt-6">
+                <h3 className="text-sm font-medium mb-2">About</h3>
+                <p className="text-sm text-muted-foreground">{userProfile.bio}</p>
+              </div>
+              
+              <div className="mt-6">
+                <h3 className="text-sm font-medium mb-2">Connect</h3>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="icon" className="rounded-full">
+                    <Github className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" className="rounded-full">
+                    <Linkedin className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" className="rounded-full">
+                    <Twitter className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <MapPin className="h-5 w-5 text-muted-foreground" />
-              <span>{userProfile.location}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Calendar className="h-5 w-5 text-muted-foreground" />
-              <span>Joined {userProfile.joinDate}</span>
-            </div>
-          </div>
-          
-          <div className="mt-6">
-            <h3 className="text-sm font-medium mb-2">About</h3>
-            <p className="text-sm text-muted-foreground">{userProfile.bio}</p>
-          </div>
-          
-          <div className="mt-6">
-            <h3 className="text-sm font-medium mb-2">Connect</h3>
-            <div className="flex gap-2">
-              <Button variant="outline" size="icon" className="rounded-full">
-                <Github className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" className="rounded-full">
-                <Linkedin className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" className="rounded-full">
-                <Twitter className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          )}
         </Card>
 
-        {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card className="p-4">
               <div className="flex flex-col items-center text-center">
@@ -222,7 +365,6 @@ const Profile = () => {
             </Card>
           </div>
 
-          {/* Tabs for Skills, Certificates, Activity */}
           <Tabs defaultValue="skills">
             <TabsList className="mb-4">
               <TabsTrigger value="skills">Skills</TabsTrigger>

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -9,6 +8,7 @@ import NotificationsPopover from "@/components/NotificationsPopover";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import WelcomeHeader from "@/components/WelcomeHeader";
 
 const coursesInProgress = [
   {
@@ -140,21 +140,9 @@ const Dashboard = () => {
   const visibleCourses = coursesInProgress.slice(courseStartIndex, courseStartIndex + 3);
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-bold">Welcome back, {user?.user_metadata?.full_name?.split(' ')[0] || 'User'}!</h1>
-          <p className="text-muted-foreground">Track your learning progress</p>
-        </div>
-        <div className="flex items-center flex-wrap gap-2">
-          <SearchBar />
-          <div className="flex items-center space-x-2">
-            <NotificationsPopover />
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
-
+    <Fragment>
+      <WelcomeHeader />
+      
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold">Courses In Progress</h2>
@@ -296,7 +284,7 @@ const Dashboard = () => {
           ))}
         </div>
       </div>
-    </div>
+    </Fragment>
   );
 };
 

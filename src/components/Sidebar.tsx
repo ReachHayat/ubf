@@ -1,3 +1,4 @@
+
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -37,13 +38,21 @@ const Sidebar = ({ collapsed = false, onToggle }: SidebarProps) => {
   if (!user) return null;
 
   const getInitials = () => {
-    const name = user?.user_metadata?.full_name || 'User';
+    const name = user?.user_metadata?.full_name || user?.email || 'User';
+    if (name.includes('@')) {
+      // If it's an email, use first letter
+      return name.substring(0, 1).toUpperCase();
+    }
     return name
       .split(' ')
       .map((n: string) => n[0])
       .join('')
       .toUpperCase()
       .substring(0, 2);
+  };
+
+  const getDisplayName = () => {
+    return user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
   };
 
   return (
@@ -146,7 +155,7 @@ const Sidebar = ({ collapsed = false, onToggle }: SidebarProps) => {
                   </Avatar>
                   <div className="flex flex-col">
                     <span className="text-sm font-medium">
-                      {user?.user_metadata?.full_name || 'User'}
+                      {getDisplayName()}
                     </span>
                     <span className="text-xs text-muted-foreground capitalize">
                       {roles[0] || "Student"}

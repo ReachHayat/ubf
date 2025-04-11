@@ -9,6 +9,7 @@ export type UserRole = "admin" | "tutor" | "student";
 
 interface UserWithRoles extends User {
   roles?: UserRole[];
+  fullName?: string;
 }
 
 interface AuthContextType {
@@ -21,6 +22,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   isAdmin: () => boolean;
   isTutor: () => boolean;
+  updateUserProfile: (data: { full_name?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,12 +40,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
+        console.log("Auth state changed:", event, newSession?.user?.id);
         setSession(newSession);
-        setUser(newSession?.user ?? null);
         
         if (newSession?.user) {
+          const enhancedUser = {
+            ...newSession.user,
+            fullName: newSession.user.user_metadata?.full_name || ''
+          };
+          setUser(enhancedUser);
           fetchUserRoles(newSession.user.id);
         } else {
+          setUser(null);
           setRoles([]);
         }
       }
@@ -51,11 +59,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      console.log("Getting initial session:", currentSession?.user?.id);
       setSession(currentSession);
-      setUser(currentSession?.user ?? null);
       
       if (currentSession?.user) {
+        const enhancedUser = {
+          ...currentSession.user,
+          fullName: currentSession.user.user_metadata?.full_name || ''
+        };
+        setUser(enhancedUser);
         fetchUserRoles(currentSession.user.id);
+      } else {
+        setUser(null);
       }
       setIsLoading(false);
     });
@@ -86,12 +101,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         if (user) {
           setUser({
             ...user,
-            roles: data.roles as UserRole[]
+            roles: data.roles as UserRole[],
+            fullName: data.full_name || user.user_metadata?.full_name || ''
           });
         }
       }
     } catch (error) {
       console.error("Error in fetchUserRoles:", error);
+    }
+  };
+
+  const updateUserProfile = async (data: { full_name?: string }) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: data
+      });
+
+      if (error) {
+        toast({
+          title: "Profile update failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update local user state immediately
+      setUser(prev => {
+        if (!prev) return null;
+        
+        return {
+          ...prev,
+          fullName: data.full_name || prev.fullName,
+          user_metadata: {
+            ...prev.user_metadata,
+            full_name: data.full_name || prev.user_metadata?.full_name
+          }
+        };
+      });
+
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
+      });
+    } catch (error) {
+      console.error("Profile update error:", error);
+      toast({
+        title: "Profile update failed",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -194,6 +255,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         signOut,
         isAdmin,
         isTutor,
+        updateUserProfile,
       }}
     >
       {children}
