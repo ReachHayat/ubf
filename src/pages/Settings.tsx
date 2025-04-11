@@ -1,4 +1,4 @@
-
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Bell, 
   Moon, 
@@ -23,7 +26,8 @@ import {
   Github,
   Twitter,
   Linkedin,
-  MessageSquare
+  MessageSquare,
+  UserCog
 } from "lucide-react";
 import {
   Select,
@@ -35,8 +39,74 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { updateUserRole } from "@/services/userService";
 
 const Settings = () => {
+  const { user, roles, updateUserProfile } = useAuth();
+  const [fullName, setFullName] = useState("");
+  const [location, setLocation] = useState("San Francisco, CA");
+  const [bio, setBio] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<string>("");
+
+  useEffect(() => {
+    if (user) {
+      setFullName(user.user_metadata?.full_name || "");
+      setEmail(user.email || "");
+      if (roles && roles.length > 0) {
+        setRole(roles[0]);
+      }
+    }
+  }, [user, roles]);
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      await updateUserProfile({
+        full_name: fullName
+      });
+
+      toast({
+        title: "Profile updated",
+        description: "Your profile information has been updated successfully."
+      });
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast({
+        title: "Update failed",
+        description: "There was a problem updating your profile.",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRoleChange = async (newRole: string) => {
+    if (!user) return;
+    
+    try {
+      const success = await updateUserRole(user.id, newRole as "admin" | "tutor" | "student");
+      if (success) {
+        setRole(newRole);
+        toast({
+          title: "Role updated",
+          description: `Your role has been updated to ${newRole}.`
+        });
+      }
+    } catch (error) {
+      console.error("Error updating role:", error);
+      toast({
+        title: "Role update failed",
+        description: "There was a problem updating your role.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="space-y-8">
       <header>
@@ -48,6 +118,7 @@ const Settings = () => {
         <TabsList className="mb-6">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
+          <TabsTrigger value="roles">Roles</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
         </TabsList>
@@ -60,29 +131,33 @@ const Settings = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Full Name</Label>
-                  <Input id="fullName" defaultValue="John Doe" />
+                  <Input 
+                    id="fullName" 
+                    value={fullName} 
+                    onChange={(e) => setFullName(e.target.value)} 
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input id="username" defaultValue="johndoe" />
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input id="email" type="email" value={email} disabled />
                 </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input id="email" type="email" defaultValue="john.doe@example.com" />
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="location">Location</Label>
-                <Input id="location" defaultValue="San Francisco, CA" />
+                <Input 
+                  id="location" 
+                  value={location} 
+                  onChange={(e) => setLocation(e.target.value)} 
+                />
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="bio">Bio</Label>
                 <Textarea
                   id="bio"
-                  defaultValue="Frontend developer passionate about creating beautiful user experiences. Currently improving my Angular and React skills."
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
                   className="min-h-24"
                 />
               </div>
@@ -92,23 +167,27 @@ const Settings = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center gap-2">
                     <Github className="h-5 w-5" />
-                    <Input defaultValue="github.com/johndoe" />
+                    <Input defaultValue="github.com/username" />
                   </div>
                   <div className="flex items-center gap-2">
                     <Linkedin className="h-5 w-5" />
-                    <Input defaultValue="linkedin.com/in/johndoe" />
+                    <Input defaultValue="linkedin.com/in/username" />
                   </div>
                   <div className="flex items-center gap-2">
                     <Twitter className="h-5 w-5" />
-                    <Input defaultValue="twitter.com/johndoe" />
+                    <Input defaultValue="twitter.com/username" />
                   </div>
                 </div>
               </div>
               
               <div className="flex justify-end">
-                <Button className="flex items-center gap-2">
+                <Button 
+                  className="flex items-center gap-2" 
+                  onClick={handleSaveProfile}
+                  disabled={saving}
+                >
                   <SaveIcon className="h-4 w-4" />
-                  Save Changes
+                  {saving ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </div>
@@ -164,6 +243,76 @@ const Settings = () => {
                       </p>
                     </div>
                     <Button variant="destructive">Delete Account</Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="roles">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-6">Role Management</h2>
+            
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <UserCog className="h-5 w-5 text-muted-foreground" />
+                    <h4 className="font-medium">Current Role</h4>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Your current role determines your permissions in the system
+                  </p>
+                </div>
+                
+                <Select 
+                  value={role} 
+                  onValueChange={handleRoleChange}
+                  disabled={!user?.email?.includes("admin@example.com")}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="student">Student</SelectItem>
+                    <SelectItem value="tutor">Tutor</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {!user?.email?.includes("admin@example.com") && (
+                <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
+                  <p className="text-sm text-yellow-800">
+                    Only admin users can change roles. If you need a role change, please contact an administrator.
+                  </p>
+                </div>
+              )}
+              
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-medium mb-4">Role Permissions</h3>
+                
+                <div className="space-y-4">
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium">Student</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Can access and participate in courses, submit assignments, and engage with the community.
+                    </p>
+                  </div>
+                  
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium">Tutor</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Can create courses, grade assignments, and provide feedback to students.
+                    </p>
+                  </div>
+                  
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium">Admin</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Has full access to the platform, including user management, configuration, and all other features.
+                    </p>
                   </div>
                 </div>
               </div>
