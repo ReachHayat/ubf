@@ -131,6 +131,13 @@ export type Database = {
             foreignKeyName: "user_roles_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "debug_user_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users_with_roles"
             referencedColumns: ["id"]
           },
@@ -216,6 +223,16 @@ export type Database = {
       }
     }
     Views: {
+      debug_user_roles: {
+        Row: {
+          email: string | null
+          full_name: string | null
+          id: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          role_assigned_at: string | null
+        }
+        Relationships: []
+      }
       users_with_roles: {
         Row: {
           avatar_url: string | null
@@ -234,6 +251,10 @@ export type Database = {
           _user_id: string
           _role: Database["public"]["Enums"]["user_role"]
         }
+        Returns: boolean
+      }
+      is_admin: {
+        Args: { user_id: string }
         Returns: boolean
       }
     }

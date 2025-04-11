@@ -82,8 +82,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const fetchUserRoles = async (userId: string) => {
     try {
-      // Use the REST API directly rather than the typed client 
-      // to access the users_with_roles view
+      // First check if user has admin role using our security definer function
+      const { data: isAdminData, error: isAdminError } = await supabase.rpc('is_admin', { user_id: userId });
+      
+      if (isAdminError) {
+        console.error("Error checking admin status:", isAdminError);
+      }
+      
+      // Use the REST API to access the users_with_roles view
       const { data, error } = await supabase
         .from('users_with_roles')
         .select('*')
@@ -96,13 +102,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       if (data && data.roles) {
-        setRoles(data.roles as UserRole[]);
+        // If the is_admin function returned true but admin isn't in roles, add it
+        let userRoles = data.roles as UserRole[];
+        if (isAdminData === true && !userRoles.includes('admin')) {
+          userRoles.push('admin');
+        }
+        
+        setRoles(userRoles);
         
         if (user) {
           setUser({
             ...user,
-            roles: data.roles as UserRole[],
+            roles: userRoles,
             fullName: data.full_name || user.user_metadata?.full_name || ''
+          });
+        }
+      } else if (isAdminData === true) {
+        // If no roles in the view but is_admin function says user is admin
+        setRoles(['admin']);
+        
+        if (user) {
+          setUser({
+            ...user,
+            roles: ['admin'],
+            fullName: user.user_metadata?.full_name || ''
           });
         }
       }
