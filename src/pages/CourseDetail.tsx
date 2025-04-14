@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,137 +9,389 @@ import {
   Clock, 
   PlayCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Edit,
+  Trash2,
+  Plus,
+  User
 } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
-type CourseSection = {
-  id: number;
-  title: string;
-  duration: string;
-  expanded: boolean;
-  lessons: {
-    id: number;
-    title: string;
-    duration: string;
-    isCompleted: boolean;
-  }[];
-};
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "@/hooks/use-toast";
+import { 
+  getCourseById, 
+  updateCourse, 
+  updateCourseSection, 
+  deleteCourseSection,
+  updateCourseLesson,
+  deleteCourseLesson,
+  updateCourseAssignment,
+  deleteCourseAssignment,
+  enrollInCourse,
+  unenrollFromCourse
+} from "@/components/courses/CourseService";
+import { Course, CourseSection, CourseLesson, CourseAssignment } from "@/types/course";
+import { CourseEditDialog, CourseData } from "@/components/admin/CourseEditDialog";
+import { SectionEditor } from "@/components/courses/SectionEditor";
+import { LessonEditor } from "@/components/courses/LessonEditor";
+import { AssignmentEditor } from "@/components/courses/AssignmentEditor";
+import { QuizEditor } from "@/components/courses/QuizEditor";
+import { UserProfilePreview } from "@/components/profile/UserProfilePreview";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CourseDetail = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
   
-  // Course information (in a real app, this would be fetched based on the ID)
-  const [course] = useState({
-    id: "figma-a-to-z",
-    title: "Figma from A to Z",
-    category: "UI/UX Design",
-    instructor: {
-      name: "Crystal Lucas",
-      role: "UI/UX Specialist",
-      avatar: "CL"
-    },
-    rating: 4.8,
-    reviews: 126,
-    lessons: 38,
-    duration: "4h 30min",
-    image: "/lovable-uploads/225b2ac5-0ee7-49a0-ab7c-8110e42dc865.png",
-    enrolled: true,
-    progress: 35
-  });
-
+  const [course, setCourse] = useState<Course | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
+  const [sections, setSections] = useState<CourseSection[]>([]);
   
-  const [sections, setSections] = useState<CourseSection[]>([
-    {
-      id: 1,
-      title: "01: Intro",
-      duration: "22min",
-      expanded: true,
-      lessons: [
-        { id: 101, title: "Introduction", duration: "2 min", isCompleted: true },
-        { id: 102, title: "What is Figma?", duration: "5 min", isCompleted: true },
-        { id: 103, title: "Understanding Figma", duration: "12 min", isCompleted: false },
-        { id: 104, title: "UI tour", duration: "3 min", isCompleted: false }
-      ]
-    },
-    {
-      id: 2,
-      title: "02: Intermediate Level Stuff",
-      duration: "1h 20min",
-      expanded: false,
-      lessons: [
-        { id: 201, title: "Figma Components", duration: "15 min", isCompleted: false },
-        { id: 202, title: "Auto Layout", duration: "20 min", isCompleted: false },
-        { id: 203, title: "Variables", duration: "25 min", isCompleted: false },
-        { id: 204, title: "Working with Constraints", duration: "20 min", isCompleted: false }
-      ]
-    },
-    {
-      id: 3,
-      title: "03: Advanced Stuff",
-      duration: "36min",
-      expanded: false,
-      lessons: [
-        { id: 301, title: "Prototyping Advanced Techniques", duration: "12 min", isCompleted: false },
-        { id: 302, title: "Interactive Components", duration: "14 min", isCompleted: false },
-        { id: 303, title: "Design System Architecture", duration: "10 min", isCompleted: false }
-      ]
-    },
-    {
-      id: 4,
-      title: "04: Imports & Graphics",
-      duration: "40min",
-      expanded: false,
-      lessons: [
-        { id: 401, title: "Importing Assets", duration: "12 min", isCompleted: false },
-        { id: 402, title: "Vector Networks", duration: "15 min", isCompleted: false },
-        { id: 403, title: "Advanced Graphics Techniques", duration: "13 min", isCompleted: false }
-      ]
-    },
-    {
-      id: 5,
-      title: "05: Component in Figma",
-      duration: "1h 12min",
-      expanded: false,
-      lessons: [
-        { id: 501, title: "Creating Component Libraries", duration: "18 min", isCompleted: false },
-        { id: 502, title: "Component Properties", duration: "22 min", isCompleted: false },
-        { id: 503, title: "Component Best Practices", duration: "32 min", isCompleted: false }
-      ]
-    },
-    {
-      id: 6,
-      title: "06: Styles in Figma",
-      duration: "41min",
-      expanded: false,
-      lessons: [
-        { id: 601, title: "Color Styles", duration: "12 min", isCompleted: false },
-        { id: 602, title: "Typography Styles", duration: "14 min", isCompleted: false },
-        { id: 603, title: "Effect Styles", duration: "15 min", isCompleted: false }
-      ]
-    },
-    {
-      id: 7,
-      title: "07: Summary",
-      duration: "8min",
-      expanded: false,
-      lessons: [
-        { id: 701, title: "Course Summary", duration: "5 min", isCompleted: false },
-        { id: 702, title: "Next Steps", duration: "3 min", isCompleted: false }
-      ]
-    }
-  ]);
+  // Edit dialogs state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editSectionData, setEditSectionData] = useState<CourseSection | null>(null);
+  const [isEditingSections, setIsEditingSections] = useState(false);
+  const [editLessonData, setEditLessonData] = useState<CourseLesson | null>(null);
+  const [isEditingLesson, setIsEditingLesson] = useState(false);
+  const [currentSectionId, setCurrentSectionId] = useState<string>("");
+  const [editAssignmentData, setEditAssignmentData] = useState<CourseAssignment | null>(null);
+  const [isEditingAssignment, setIsEditingAssignment] = useState(false);
+  const [isEditingQuiz, setIsEditingQuiz] = useState(false);
+  const [editQuizData, setEditQuizData] = useState<any>(null);
+  
+  // Profile preview
+  const [isProfilePreviewOpen, setIsProfilePreviewOpen] = useState(false);
+  const [previewUserId, setPreviewUserId] = useState<string>("");
 
-  const toggleSection = (sectionId: number) => {
+  // Load course data
+  useEffect(() => {
+    if (id) {
+      setLoading(true);
+      const courseData = getCourseById(id);
+      
+      if (courseData) {
+        setCourse(courseData);
+        setSections(courseData.sections || []);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Course not found",
+          description: "The course you're looking for doesn't exist or has been removed."
+        });
+        navigate("/courses");
+      }
+      
+      setLoading(false);
+    }
+  }, [id, navigate]);
+
+  const toggleSection = (sectionId: string) => {
     setSections(sections.map(section => 
       section.id === sectionId 
         ? { ...section, expanded: !section.expanded }
         : section
     ));
+    
+    // Also update in the course object
+    if (course && course.sections) {
+      const updatedCourse = {
+        ...course,
+        sections: course.sections.map(section => 
+          section.id === sectionId 
+            ? { ...section, expanded: !section.expanded }
+            : section
+        )
+      };
+      setCourse(updatedCourse);
+      updateCourse(updatedCourse);
+    }
   };
+
+  const handleEditCourse = () => {
+    if (!course) return;
+    
+    const courseDataForEdit: CourseData = {
+      id: course.id,
+      title: course.title,
+      category: course.category,
+      instructor: course.instructor.name,
+      students: course.enrolled ? 1 : 0, 
+      status: course.status || "published",
+      rating: course.rating,
+      lastUpdated: course.lastUpdated || new Date().toISOString().split('T')[0],
+      description: course.description,
+      tags: course.tags,
+      duration: course.totalHours,
+      price: course.price
+    };
+    
+    setIsEditing(true);
+  };
+
+  const handleSaveCourse = (courseData: CourseData) => {
+    if (!course) return;
+    
+    // Transform CourseData to Course
+    const updatedCourse: Course = {
+      ...course,
+      title: courseData.title,
+      category: courseData.category,
+      instructor: {
+        ...course.instructor,
+        name: courseData.instructor
+      },
+      description: courseData.description || "",
+      status: courseData.status,
+      rating: courseData.rating,
+      lastUpdated: courseData.lastUpdated,
+      tags: courseData.tags,
+      totalHours: courseData.duration || 0,
+      price: courseData.price,
+      thumbnail: courseData.thumbnail
+    };
+    
+    setCourse(updatedCourse);
+    updateCourse(updatedCourse);
+    
+    toast({
+      title: "Course updated",
+      description: "Course details have been updated successfully."
+    });
+  };
+
+  const handleEditSection = (section: CourseSection | null) => {
+    setEditSectionData(section);
+    setIsEditingSections(true);
+  };
+
+  const handleSaveSection = (section: CourseSection) => {
+    if (!course || !course.id) return;
+    
+    // Add or update the section in the course
+    if (!course.sections) {
+      course.sections = [];
+    }
+    
+    updateCourseSection(course.id, section);
+    
+    // Refresh course data
+    const updatedCourse = getCourseById(course.id);
+    if (updatedCourse) {
+      setCourse(updatedCourse);
+      setSections(updatedCourse.sections || []);
+    }
+    
+    toast({
+      title: "Section updated",
+      description: "The section has been updated successfully."
+    });
+  };
+
+  const handleDeleteSection = (sectionId: string) => {
+    if (!course || !course.id) return;
+    
+    if (confirm("Are you sure you want to delete this section?")) {
+      deleteCourseSection(course.id, sectionId);
+      
+      // Refresh course data
+      const updatedCourse = getCourseById(course.id);
+      if (updatedCourse) {
+        setCourse(updatedCourse);
+        setSections(updatedCourse.sections || []);
+      }
+      
+      toast({
+        title: "Section deleted",
+        description: "The section has been deleted successfully."
+      });
+    }
+  };
+
+  const handleEditLesson = (lesson: CourseLesson | null, sectionId: string) => {
+    setEditLessonData(lesson);
+    setCurrentSectionId(sectionId);
+    setIsEditingLesson(true);
+  };
+
+  const handleSaveLesson = (lesson: CourseLesson) => {
+    if (!course || !course.id || !currentSectionId) return;
+    
+    updateCourseLesson(course.id, currentSectionId, lesson);
+    
+    // Refresh course data
+    const updatedCourse = getCourseById(course.id);
+    if (updatedCourse) {
+      setCourse(updatedCourse);
+      setSections(updatedCourse.sections || []);
+    }
+    
+    toast({
+      title: "Lesson updated",
+      description: "The lesson has been updated successfully."
+    });
+  };
+
+  const handleDeleteLesson = (sectionId: string, lessonId: string) => {
+    if (!course || !course.id) return;
+    
+    if (confirm("Are you sure you want to delete this lesson?")) {
+      deleteCourseLesson(course.id, sectionId, lessonId);
+      
+      // Refresh course data
+      const updatedCourse = getCourseById(course.id);
+      if (updatedCourse) {
+        setCourse(updatedCourse);
+        setSections(updatedCourse.sections || []);
+      }
+      
+      toast({
+        title: "Lesson deleted",
+        description: "The lesson has been deleted successfully."
+      });
+    }
+  };
+
+  const handleEditAssignment = (assignment: CourseAssignment | null) => {
+    setEditAssignmentData(assignment);
+    setIsEditingAssignment(true);
+  };
+
+  const handleSaveAssignment = (assignment: CourseAssignment) => {
+    if (!course || !course.id) return;
+    
+    updateCourseAssignment(course.id, assignment);
+    
+    // Refresh course data
+    const updatedCourse = getCourseById(course.id);
+    if (updatedCourse) {
+      setCourse(updatedCourse);
+    }
+    
+    toast({
+      title: "Assignment updated",
+      description: "The assignment has been updated successfully."
+    });
+  };
+
+  const handleDeleteAssignment = (assignmentId: string) => {
+    if (!course || !course.id) return;
+    
+    if (confirm("Are you sure you want to delete this assignment?")) {
+      deleteCourseAssignment(course.id, assignmentId);
+      
+      // Refresh course data
+      const updatedCourse = getCourseById(course.id);
+      if (updatedCourse) {
+        setCourse(updatedCourse);
+      }
+      
+      toast({
+        title: "Assignment deleted",
+        description: "The assignment has been deleted successfully."
+      });
+    }
+  };
+
+  const handleEditQuiz = (quiz: any | null) => {
+    setEditQuizData(quiz);
+    setIsEditingQuiz(true);
+  };
+
+  const handleSaveQuiz = (quiz: any) => {
+    if (!course || !course.id) return;
+    
+    const updatedCourse = { ...course };
+    if (!updatedCourse.quizzes) {
+      updatedCourse.quizzes = [];
+    }
+    
+    // Find and update existing quiz or add new one
+    const quizIndex = updatedCourse.quizzes.findIndex(q => q.id === quiz.id);
+    if (quizIndex !== -1) {
+      updatedCourse.quizzes[quizIndex] = quiz;
+    } else {
+      updatedCourse.quizzes.push(quiz);
+    }
+    
+    setCourse(updatedCourse);
+    updateCourse(updatedCourse);
+    
+    toast({
+      title: "Quiz updated",
+      description: "The quiz has been updated successfully."
+    });
+  };
+
+  const handleDeleteQuiz = (quizId: string) => {
+    if (!course || !course.id || !course.quizzes) return;
+    
+    if (confirm("Are you sure you want to delete this quiz?")) {
+      const updatedCourse = { ...course };
+      updatedCourse.quizzes = updatedCourse.quizzes.filter(q => q.id !== quizId);
+      
+      setCourse(updatedCourse);
+      updateCourse(updatedCourse);
+      
+      toast({
+        title: "Quiz deleted",
+        description: "The quiz has been deleted successfully."
+      });
+    }
+  };
+
+  const handleEnrollment = () => {
+    if (!course) return;
+    
+    if (course.enrolled) {
+      unenrollFromCourse(course.id);
+      toast({
+        title: "Unenrolled",
+        description: "You have successfully unenrolled from this course."
+      });
+    } else {
+      enrollInCourse(course.id);
+      toast({
+        title: "Enrolled",
+        description: "You have successfully enrolled in this course!"
+      });
+    }
+    
+    // Refresh course data
+    const updatedCourse = getCourseById(course.id);
+    if (updatedCourse) {
+      setCourse(updatedCourse);
+    }
+  };
+
+  const handleViewProfile = (userId: string) => {
+    setPreviewUserId(userId);
+    setIsProfilePreviewOpen(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!course) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-bold">Course not found</h2>
+        <p className="text-muted-foreground mt-2">
+          The course you're looking for doesn't exist or has been removed.
+        </p>
+        <Button className="mt-4" asChild>
+          <Link to="/courses">Back to Courses</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -149,19 +401,19 @@ const CourseDetail = () => {
           Courses
         </Link>
         <span>/</span>
-        <Link to="/courses" className="hover:underline">UI UX Design</Link>
+        <Link to="/courses" className="hover:underline">{course.category}</Link>
         <span>/</span>
-        <span className="text-foreground">Figma from A to Z</span>
+        <span className="text-foreground">{course.title}</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Course Info */}
         <div className="lg:col-span-2 space-y-6">
           <div className="relative">
-            {course.image && (
+            {course.thumbnail && (
               <div className="rounded-lg overflow-hidden relative aspect-video">
                 <img 
-                  src={course.image} 
+                  src={course.thumbnail} 
                   alt={course.title} 
                   className="w-full h-full object-cover"
                 />
@@ -172,20 +424,31 @@ const CourseDetail = () => {
                 </div>
               </div>
             )}
+            
+            {isAdmin() && (
+              <Button 
+                variant="outline" 
+                className="absolute top-4 right-4" 
+                onClick={handleEditCourse}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Course
+              </Button>
+            )}
           </div>
 
           <div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
               <Badge variant="outline">{course.category}</Badge>
               <div className="flex items-center gap-1">
-                <span>{course.lessons} lessons</span>
+                <span>{sections.reduce((total, section) => total + section.lessons.length, 0)} lessons</span>
                 <span>•</span>
                 <Clock className="h-3 w-3" />
-                <span>{course.duration}</span>
+                <span>{course.totalHours}h</span>
               </div>
               <div className="flex items-center gap-1">
                 <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                <span>{course.rating} ({course.reviews} reviews)</span>
+                <span>{course.rating || 0} ({course.reviews || 0} reviews)</span>
               </div>
             </div>
             
@@ -198,9 +461,9 @@ const CourseDetail = () => {
             >
               <TabsList className="w-full grid grid-cols-4">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="author">Author</TabsTrigger>
-                <TabsTrigger value="faq">FAQ</TabsTrigger>
-                <TabsTrigger value="announcements">Announcements</TabsTrigger>
+                <TabsTrigger value="instructor">Instructor</TabsTrigger>
+                <TabsTrigger value="assignments">Assignments</TabsTrigger>
+                <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
               </TabsList>
               
               <TabsContent value="overview" className="mt-6">
@@ -208,142 +471,189 @@ const CourseDetail = () => {
                   <div>
                     <h2 className="text-xl font-semibold mb-4">About Course</h2>
                     <p className="text-muted-foreground">
-                      Unlock the power of Figma, the leading collaborative design tool, with our comprehensive online course. 
-                      Whether you're a novice or looking to enhance your skills, this course will guide you through Figma's robust 
-                      features and workflows.
-                    </p>
-                    <p className="text-muted-foreground mt-4">
-                      Perfect for UI/UX designers, product managers, and anyone interested in modern design tools. Join us to elevate 
-                      your design skills and boost your productivity with Figma!
+                      {course.description || "No description available for this course."}
                     </p>
                   </div>
+                  
+                  {course.tags && course.tags.length > 0 && (
+                    <div>
+                      <h2 className="text-xl font-semibold mb-4">Tags</h2>
+                      <div className="flex flex-wrap gap-2">
+                        {course.tags.map(tag => (
+                          <Badge key={tag} variant="secondary">{tag}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   
                   <div>
                     <h2 className="text-xl font-semibold mb-4">What You'll Learn</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-start gap-2">
-                        <div className="mt-1 text-green-500">✓</div>
-                        <p>Setting up the environment</p>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <div className="mt-1 text-green-500">✓</div>
-                        <p>Understand HTML Programming</p>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <div className="mt-1 text-green-500">✓</div>
-                        <p>Advanced HTML Practices</p>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <div className="mt-1 text-green-500">✓</div>
-                        <p>Code HTML</p>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <div className="mt-1 text-green-500">✓</div>
-                        <p>Build a portfolio website</p>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <div className="mt-1 text-green-500">✓</div>
-                        <p>Start building beautiful websites</p>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <div className="mt-1 text-green-500">✓</div>
-                        <p>Responsive Designs</p>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <div className="mt-1 text-green-500">✓</div>
-                        <p>Master prototyping tools</p>
-                      </div>
+                      {sections.flatMap(section => 
+                        section.lessons.slice(0, 2).map(lesson => (
+                          <div key={lesson.id} className="flex items-start gap-2">
+                            <div className="mt-1 text-green-500">✓</div>
+                            <p>{lesson.title}</p>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>
               </TabsContent>
               
-              <TabsContent value="author" className="mt-6">
+              <TabsContent value="instructor" className="mt-6">
                 <Card className="p-6">
                   <div className="flex items-center gap-4">
-                    <Avatar className="h-16 w-16">
-                      <AvatarFallback className="text-xl">{course.instructor.avatar}</AvatarFallback>
+                    <Avatar className="h-16 w-16 cursor-pointer" onClick={() => handleViewProfile(course.instructor.id)}>
+                      {course.instructor.avatar ? (
+                        <AvatarImage src={course.instructor.avatar} />
+                      ) : (
+                        <AvatarFallback className="text-xl">{course.instructor.name.charAt(0)}</AvatarFallback>
+                      )}
                     </Avatar>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-bold">{course.instructor.name}</h3>
+                        <h3 className="text-lg font-bold" onClick={() => handleViewProfile(course.instructor.id)} style={{ cursor: "pointer" }}>
+                          {course.instructor.name}
+                        </h3>
+                        <User className="h-4 w-4 text-muted-foreground cursor-pointer" onClick={() => handleViewProfile(course.instructor.id)} />
                         <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="font-medium">(4.8)</span>
+                        <span className="font-medium">({course.rating || 4.5})</span>
                       </div>
                       <p className="text-muted-foreground">{course.instructor.role}</p>
                     </div>
                   </div>
                   
                   <p className="mt-4 text-muted-foreground">
-                    Crystal is a seasoned UI/UX designer with over a decade of experience working with top tech companies. 
-                    She specializes in creating intuitive and beautiful user interfaces that enhance user experiences across web and mobile platforms.
+                    {course.instructor.name} is an experienced instructor specializing in {course.category}. 
+                    With numerous courses and high student satisfaction, they're committed to providing 
+                    high-quality educational content.
                   </p>
                   
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Badge variant="secondary">Figma Expert</Badge>
-                    <Badge variant="secondary">Design Systems</Badge>
-                    <Badge variant="secondary">Prototyping</Badge>
-                    <Badge variant="secondary">UI/UX Design</Badge>
+                    <Badge variant="secondary">{course.category} Expert</Badge>
+                    <Badge variant="secondary">Course Creator</Badge>
+                    <Badge variant="secondary">Professional Instructor</Badge>
                   </div>
                 </Card>
               </TabsContent>
               
-              <TabsContent value="faq" className="mt-6">
+              <TabsContent value="assignments" className="mt-6">
                 <Card className="p-6">
-                  <h2 className="text-xl font-semibold mb-4">Frequently Asked Questions</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="font-medium">Do I need prior design experience?</h3>
-                      <p className="text-muted-foreground mt-1">
-                        No prior design experience is needed. This course is structured for beginners but also offers advanced techniques for experienced designers.
-                      </p>
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Is Figma free to use?</h3>
-                      <p className="text-muted-foreground mt-1">
-                        Figma offers a free tier that is quite generous and perfect for learning. You won't need a paid subscription to follow along with this course.
-                      </p>
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Will I get a certificate upon completion?</h3>
-                      <p className="text-muted-foreground mt-1">
-                        Yes, upon successfully completing all course modules and assignments, you'll receive a certificate of completion.
-                      </p>
-                    </div>
-                    <div>
-                      <h3 className="font-medium">How long do I have access to the course?</h3>
-                      <p className="text-muted-foreground mt-1">
-                        Once enrolled, you have lifetime access to the course content, including any future updates.
-                      </p>
-                    </div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold">Course Assignments</h2>
+                    {isAdmin() && (
+                      <Button onClick={() => handleEditAssignment(null)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Assignment
+                      </Button>
+                    )}
                   </div>
+                  
+                  {(!course.assignments || course.assignments.length === 0) ? (
+                    <p className="text-muted-foreground">No assignments available for this course.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {course.assignments.map(assignment => (
+                        <Card key={assignment.id} className="p-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-medium">{assignment.title}</h3>
+                              <p className="text-sm text-muted-foreground mt-1">{assignment.description}</p>
+                              <div className="flex items-center gap-2 mt-2">
+                                <Badge variant="outline">Due: {assignment.dueDate}</Badge>
+                                <Badge 
+                                  variant={
+                                    assignment.status === 'pending' ? 'secondary' : 
+                                    assignment.status === 'submitted' ? 'default' : 
+                                    'success'
+                                  }
+                                >
+                                  {assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1)}
+                                </Badge>
+                              </div>
+                            </div>
+                            
+                            {isAdmin() && (
+                              <div className="flex gap-2">
+                                <Button variant="ghost" size="icon" onClick={() => handleEditAssignment(assignment)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleDeleteAssignment(assignment.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
                 </Card>
               </TabsContent>
               
-              <TabsContent value="announcements" className="mt-6">
+              <TabsContent value="quizzes" className="mt-6">
                 <Card className="p-6">
-                  <h2 className="text-xl font-semibold mb-4">Course Announcements</h2>
-                  {/* Course announcements can be added here */}
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium">Course Update: New Advanced Techniques Module</h3>
-                        <span className="text-xs text-muted-foreground">1 week ago</span>
-                      </div>
-                      <p className="text-muted-foreground mt-1">
-                        We've added a new module covering advanced Figma techniques, including the latest features from Figma Config 2023.
-                      </p>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium">Live Q&A Session Next Week</h3>
-                        <span className="text-xs text-muted-foreground">2 weeks ago</span>
-                      </div>
-                      <p className="text-muted-foreground mt-1">
-                        Join us for a live Q&A session with Crystal Lucas on Friday, April 18th at 2 PM EST. Bring your Figma questions!
-                      </p>
-                    </div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold">Course Quizzes</h2>
+                    {isAdmin() && (
+                      <Button onClick={() => handleEditQuiz(null)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Quiz
+                      </Button>
+                    )}
                   </div>
+                  
+                  {(!course.quizzes || course.quizzes.length === 0) ? (
+                    <p className="text-muted-foreground">No quizzes available for this course.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {course.quizzes.map(quiz => (
+                        <Card key={quiz.id} className="p-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-medium">{quiz.title}</h3>
+                              <p className="text-sm text-muted-foreground mt-1">{quiz.description}</p>
+                              <div className="flex items-center gap-2 mt-2">
+                                <Badge variant="outline">
+                                  {quiz.questions.length} {quiz.questions.length === 1 ? 'Question' : 'Questions'}
+                                </Badge>
+                                <Badge variant="outline">
+                                  {quiz.timeLimit} Minutes
+                                </Badge>
+                                <Badge 
+                                  variant={
+                                    quiz.status === 'not_started' ? 'secondary' : 
+                                    quiz.status === 'in_progress' ? 'default' : 
+                                    'success'
+                                  }
+                                >
+                                  {quiz.status === 'not_started' 
+                                    ? 'Not Started' 
+                                    : quiz.status === 'in_progress' 
+                                      ? 'In Progress' 
+                                      : 'Completed'
+                                  }
+                                </Badge>
+                              </div>
+                            </div>
+                            
+                            {isAdmin() && (
+                              <div className="flex gap-2">
+                                <Button variant="ghost" size="icon" onClick={() => handleEditQuiz(quiz)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleDeleteQuiz(quiz.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
                 </Card>
               </TabsContent>
             </Tabs>
@@ -353,50 +663,132 @@ const CourseDetail = () => {
         {/* Course Content Sidebar */}
         <div className="lg:col-span-1">
           <Card className="p-6 sticky top-6">
-            <h2 className="text-xl font-semibold mb-4">Course content</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Course content</h2>
+              {isAdmin() && (
+                <Button variant="outline" size="sm" onClick={() => handleEditSection(null)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Section
+                </Button>
+              )}
+            </div>
             
             <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
-              {sections.map((section) => (
-                <div key={section.id} className="border rounded-lg">
-                  <div 
-                    className="p-3 flex items-center justify-between cursor-pointer hover:bg-accent/50"
-                    onClick={() => toggleSection(section.id)}
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="font-medium">{section.title}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-sm text-muted-foreground">{section.duration}</span>
-                      {section.expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </div>
-                  </div>
-                  
-                  {section.expanded && (
-                    <div className="border-t">
-                      {section.lessons.map((lesson) => (
-                        <div 
-                          key={lesson.id}
-                          className="p-3 hover:bg-accent/20 flex items-center gap-3 cursor-pointer"
-                        >
-                          <PlayCircle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                          <div className="flex flex-1 items-center justify-between">
-                            <span className={`text-sm ${lesson.isCompleted ? "line-through text-muted-foreground" : ""}`}>
-                              {lesson.title}
-                            </span>
-                            <span className="text-xs text-muted-foreground">{lesson.duration}</span>
+              {sections.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">
+                  No content available for this course yet.
+                </p>
+              ) : (
+                sections.map((section) => (
+                  <div key={section.id} className="border rounded-lg">
+                    <div 
+                      className="p-3 flex items-center justify-between cursor-pointer hover:bg-accent/50"
+                      onClick={() => toggleSection(section.id)}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium">{section.title}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">{section.duration}</span>
+                        {isAdmin() && (
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditSection(section);
+                            }}>
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSection(section.id);
+                            }}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
                           </div>
-                        </div>
-                      ))}
+                        )}
+                        {section.expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))}
+                    
+                    {section.expanded && (
+                      <div className="border-t">
+                        {section.lessons.length > 0 ? (
+                          section.lessons.map((lesson) => (
+                            <div 
+                              key={lesson.id}
+                              className="p-3 hover:bg-accent/20 flex items-center gap-3 cursor-pointer group"
+                            >
+                              <PlayCircle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                              <div className="flex flex-1 items-center justify-between">
+                                <span className={`text-sm ${lesson.isCompleted ? "line-through text-muted-foreground" : ""}`}>
+                                  {lesson.title}
+                                </span>
+                                <div className="flex items-center">
+                                  <span className="text-xs text-muted-foreground">{lesson.duration}</span>
+                                  {isAdmin() && (
+                                    <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditLesson(lesson, section.id)}>
+                                        <Edit className="h-3 w-3" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteLesson(section.id, lesson.id)}>
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-3 text-sm text-muted-foreground text-center">
+                            No lessons in this section yet.
+                            {isAdmin() && (
+                              <Button 
+                                variant="link" 
+                                size="sm" 
+                                className="p-0 h-auto ml-2" 
+                                onClick={() => handleEditLesson(null, section.id)}
+                              >
+                                Add Lesson
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                        
+                        {isAdmin() && section.lessons.length > 0 && (
+                          <div className="px-3 pb-3 pt-1">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full" 
+                              onClick={() => handleEditLesson(null, section.id)}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add Lesson
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
             
             <div className="mt-6">
-              <Button className="w-full" size="lg">
-                Continue Learning
+              <Button 
+                className="w-full" 
+                size="lg"
+                variant={course.enrolled ? "default" : "outline"}
+                onClick={handleEnrollment}
+              >
+                {course.enrolled ? "Continue Learning" : "Enroll Now"}
               </Button>
+              {course.price && !course.enrolled && (
+                <p className="mt-2 text-center text-lg font-semibold">
+                  {typeof course.price === 'number' ? `$${course.price.toFixed(2)}` : course.price}
+                </p>
+              )}
               <div className="mt-4 text-center">
                 <Button variant="link" className="text-muted-foreground text-sm">
                   Share Course
@@ -406,6 +798,63 @@ const CourseDetail = () => {
           </Card>
         </div>
       </div>
+
+      {/* Edit Dialogs */}
+      <CourseEditDialog
+        course={course ? {
+          id: course.id,
+          title: course.title,
+          category: course.category,
+          instructor: course.instructor.name,
+          students: 0,
+          status: course.status || "published",
+          rating: course.rating,
+          lastUpdated: course.lastUpdated || new Date().toISOString().split('T')[0],
+          description: course.description,
+          thumbnail: course.thumbnail,
+          tags: course.tags,
+          duration: course.totalHours,
+          price: course.price
+        } : null}
+        open={isEditing}
+        onOpenChange={setIsEditing}
+        onSave={handleSaveCourse}
+      />
+      
+      <SectionEditor
+        section={editSectionData}
+        open={isEditingSections}
+        onOpenChange={setIsEditingSections}
+        onSave={handleSaveSection}
+      />
+      
+      <LessonEditor
+        lesson={editLessonData}
+        open={isEditingLesson}
+        onOpenChange={setIsEditingLesson}
+        onSave={handleSaveLesson}
+        sectionId={currentSectionId}
+      />
+      
+      <AssignmentEditor
+        assignment={editAssignmentData}
+        open={isEditingAssignment}
+        onOpenChange={setIsEditingAssignment}
+        onSave={handleSaveAssignment}
+      />
+      
+      <QuizEditor
+        quiz={editQuizData}
+        open={isEditingQuiz}
+        onOpenChange={setIsEditingQuiz}
+        onSave={handleSaveQuiz}
+      />
+
+      <UserProfilePreview
+        userId={previewUserId}
+        open={isProfilePreviewOpen}
+        onOpenChange={setIsProfilePreviewOpen}
+      />
     </div>
   );
 };
