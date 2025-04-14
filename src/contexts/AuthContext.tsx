@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
@@ -37,7 +36,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
         console.log("Auth state changed:", event, newSession?.user?.id);
@@ -57,7 +55,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     );
 
-    // Check for existing session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
       console.log("Getting initial session:", currentSession?.user?.id);
       setSession(currentSession);
@@ -82,14 +79,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const fetchUserRoles = async (userId: string) => {
     try {
-      // First check if user has admin role using our security definer function
       const { data: isAdminData, error: isAdminError } = await supabase.rpc('is_admin', { user_id: userId });
       
       if (isAdminError) {
         console.error("Error checking admin status:", isAdminError);
       }
       
-      // Use the REST API to access the users_with_roles view
       const { data, error } = await supabase
         .from('users_with_roles')
         .select('*')
@@ -102,7 +97,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       if (data && data.roles) {
-        // If the is_admin function returned true but admin isn't in roles, add it
         let userRoles = data.roles as UserRole[];
         if (isAdminData === true && !userRoles.includes('admin')) {
           userRoles.push('admin');
@@ -118,7 +112,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           });
         }
       } else if (isAdminData === true) {
-        // If no roles in the view but is_admin function says user is admin
         setRoles(['admin']);
         
         if (user) {
@@ -151,7 +144,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      // Update local user state immediately
       setUser(prev => {
         if (!prev) return null;
         
@@ -192,7 +184,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           description: error.message,
           variant: "destructive",
         });
-        return;
+        throw error;
       }
 
       toast({
@@ -207,6 +199,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         description: "An unexpected error occurred.",
         variant: "destructive",
       });
+      throw error;
     }
   };
 
@@ -228,7 +221,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           description: error.message,
           variant: "destructive",
         });
-        return;
+        throw error;
       }
 
       toast({
@@ -243,6 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         description: "An unexpected error occurred.",
         variant: "destructive",
       });
+      throw error;
     }
   };
 
