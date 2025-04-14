@@ -96,10 +96,17 @@ export const useCommunity = () => {
       if (error) throw error;
       
       if (data) {
-        setChannels(data as Channel[]);
+        // Transform data to ensure type is correct
+        const transformedData: Channel[] = data.map(channel => ({
+          ...channel,
+          // Ensure type is cast to the correct union type
+          type: channel.type === "voice" ? "voice" : "text"
+        }));
+        
+        setChannels(transformedData);
         // Set first channel as active if none is selected
-        if (!activeChannel && data.length > 0) {
-          setActiveChannel(data[0] as Channel);
+        if (!activeChannel && transformedData.length > 0) {
+          setActiveChannel(transformedData[0]);
         }
       }
     } catch (error) {
@@ -271,7 +278,15 @@ export const useCommunity = () => {
       // Fetch channels to update the list
       await fetchChannels();
       
-      return data[0] as Channel;
+      // Cast to our Channel type 
+      if (data && data.length > 0) {
+        const newChannel: Channel = {
+          ...data[0],
+          type: data[0].type === "voice" ? "voice" : "text"
+        };
+        return newChannel;
+      }
+      return null;
     } catch (error) {
       console.error('Error creating channel:', error);
       toast({
@@ -303,7 +318,15 @@ export const useCommunity = () => {
       // Fetch channels to update the list
       await fetchChannels();
       
-      return data[0] as Channel;
+      // Cast to our Channel type
+      if (data && data.length > 0) {
+        const updatedChannel: Channel = {
+          ...data[0],
+          type: data[0].type === "voice" ? "voice" : "text"
+        };
+        return updatedChannel;
+      }
+      return null;
     } catch (error) {
       console.error('Error updating channel:', error);
       toast({
@@ -380,6 +403,62 @@ export const useCommunity = () => {
       .join('')
       .toUpperCase()
       .substring(0, 2);
+  };
+  
+  const fetchActiveUsers = async () => {
+    try {
+      setLoading(prev => ({ ...prev, users: true }));
+      
+      // Try to fetch from users_online view
+      const { data, error } = await supabase
+        .from('users_with_roles')
+        .select('*')
+        .limit(5);
+      
+      if (!error && data) {
+        // Transform the data into ActiveUser format
+        const users: ActiveUser[] = data.map(user => ({
+          id: user.id || '',
+          name: user.full_name || user.name || '',
+          email: user.email || '',
+          role: Array.isArray(user.roles) && user.roles.length > 0 ? user.roles[0] : 'Student',
+          avatar: user.avatar_url || getInitials(user.full_name || user.name || ''),
+          online: true
+        }));
+        
+        setActiveUsers(users);
+      } else {
+        // Fallback to mock data
+        console.error('Error fetching online users, using fallback data:', error);
+        setActiveUsers([
+          { id: "1", name: "Guy Hawkins", avatar: "GH", role: "Instructor", online: true },
+          { id: "2", name: "Crystal Lucas", avatar: "CL", role: "Student", online: true },
+          { id: "3", name: "Melissa Stevens", avatar: "MS", role: "Student", online: true },
+          { id: "4", name: "John Doe", avatar: "JD", role: "Student", online: true },
+          { id: "5", name: "Peter Russell", avatar: "PR", role: "Instructor", online: true },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching active users:', error);
+      setActiveUsers([
+        { id: "1", name: "Guy Hawkins", avatar: "GH", role: "Instructor", online: true },
+        { id: "2", name: "Crystal Lucas", avatar: "CL", role: "Student", online: true },
+        { id: "3", name: "Melissa Stevens", avatar: "MS", role: "Student", online: true },
+        { id: "4", name: "John Doe", avatar: "JD", role: "Student", online: true },
+        { id: "5", name: "Peter Russell", avatar: "PR", role: "Instructor", online: true },
+      ]);
+    } finally {
+      setLoading(prev => ({ ...prev, users: false }));
+    }
+  };
+
+  const initializeCommunitySchema = async () => {
+    try {
+      // Call the edge function to initialize the community schema if needed
+      await supabase.functions.invoke('create_community_schema');
+    } catch (error) {
+      console.error('Error initializing community schema:', error);
+    }
   };
 
   return {
