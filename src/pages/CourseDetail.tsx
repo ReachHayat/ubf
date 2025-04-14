@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -567,7 +566,7 @@ const CourseDetail = () => {
                                   variant={
                                     assignment.status === 'pending' ? 'secondary' : 
                                     assignment.status === 'submitted' ? 'default' : 
-                                    'success'
+                                    'default'
                                   }
                                 >
                                   {assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1)}
@@ -626,7 +625,7 @@ const CourseDetail = () => {
                                   variant={
                                     quiz.status === 'not_started' ? 'secondary' : 
                                     quiz.status === 'in_progress' ? 'default' : 
-                                    'success'
+                                    'default'
                                   }
                                 >
                                   {quiz.status === 'not_started' 
