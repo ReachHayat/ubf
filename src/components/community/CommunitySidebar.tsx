@@ -80,7 +80,7 @@ export const CommunitySidebar: React.FC<CommunitySidebarProps> = ({
         <TabsContent value="channels" className="mt-0">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium">Text Channels</h3>
-            {isAdmin() && (
+            {isAdmin && (
               <Button 
                 variant="ghost" 
                 size="icon" 
@@ -102,7 +102,7 @@ export const CommunitySidebar: React.FC<CommunitySidebarProps> = ({
                   key={channel.id}
                   channel={channel}
                   isActive={activeChannel?.id === channel.id}
-                  isAdmin={isAdmin()}
+                  isAdmin={isAdmin}
                   onSelect={setActiveChannel}
                   onEdit={onEditChannel}
                   onDelete={onDeleteChannel}

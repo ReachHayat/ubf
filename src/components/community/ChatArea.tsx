@@ -72,7 +72,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <Button variant="ghost" size="icon">
                 <Bell className="h-4 w-4" />
               </Button>
-              {isAdmin() && (
+              {isAdmin && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon">

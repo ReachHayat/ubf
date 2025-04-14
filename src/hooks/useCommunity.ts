@@ -81,6 +81,15 @@ export const useCommunity = () => {
     }
   }, [activeChannel]);
 
+  const initializeCommunitySchema = async () => {
+    try {
+      // Call the edge function to initialize the community schema if needed
+      await supabase.functions.invoke('create_community_schema');
+    } catch (error) {
+      console.error('Error initializing community schema:', error);
+    }
+  };
+
   const fetchChannels = async () => {
     try {
       setLoading(prev => ({ ...prev, channels: true }));
@@ -215,15 +224,6 @@ export const useCommunity = () => {
       ]);
     } finally {
       setLoading(prev => ({ ...prev, users: false }));
-    }
-  };
-
-  const initializeCommunitySchema = async () => {
-    try {
-      // Call the edge function to initialize the community schema if needed
-      await supabase.functions.invoke('create_community_schema');
-    } catch (error) {
-      console.error('Error initializing community schema:', error);
     }
   };
 
@@ -403,62 +403,6 @@ export const useCommunity = () => {
       .join('')
       .toUpperCase()
       .substring(0, 2);
-  };
-  
-  const fetchActiveUsers = async () => {
-    try {
-      setLoading(prev => ({ ...prev, users: true }));
-      
-      // Try to fetch from users_online view
-      const { data, error } = await supabase
-        .from('users_with_roles')
-        .select('*')
-        .limit(5);
-      
-      if (!error && data) {
-        // Transform the data into ActiveUser format
-        const users: ActiveUser[] = data.map(user => ({
-          id: user.id || '',
-          name: user.full_name || user.name || '',
-          email: user.email || '',
-          role: Array.isArray(user.roles) && user.roles.length > 0 ? user.roles[0] : 'Student',
-          avatar: user.avatar_url || getInitials(user.full_name || user.name || ''),
-          online: true
-        }));
-        
-        setActiveUsers(users);
-      } else {
-        // Fallback to mock data
-        console.error('Error fetching online users, using fallback data:', error);
-        setActiveUsers([
-          { id: "1", name: "Guy Hawkins", avatar: "GH", role: "Instructor", online: true },
-          { id: "2", name: "Crystal Lucas", avatar: "CL", role: "Student", online: true },
-          { id: "3", name: "Melissa Stevens", avatar: "MS", role: "Student", online: true },
-          { id: "4", name: "John Doe", avatar: "JD", role: "Student", online: true },
-          { id: "5", name: "Peter Russell", avatar: "PR", role: "Instructor", online: true },
-        ]);
-      }
-    } catch (error) {
-      console.error('Error fetching active users:', error);
-      setActiveUsers([
-        { id: "1", name: "Guy Hawkins", avatar: "GH", role: "Instructor", online: true },
-        { id: "2", name: "Crystal Lucas", avatar: "CL", role: "Student", online: true },
-        { id: "3", name: "Melissa Stevens", avatar: "MS", role: "Student", online: true },
-        { id: "4", name: "John Doe", avatar: "JD", role: "Student", online: true },
-        { id: "5", name: "Peter Russell", avatar: "PR", role: "Instructor", online: true },
-      ]);
-    } finally {
-      setLoading(prev => ({ ...prev, users: false }));
-    }
-  };
-
-  const initializeCommunitySchema = async () => {
-    try {
-      // Call the edge function to initialize the community schema if needed
-      await supabase.functions.invoke('create_community_schema');
-    } catch (error) {
-      console.error('Error initializing community schema:', error);
-    }
   };
 
   return {

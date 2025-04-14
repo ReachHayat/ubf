@@ -87,6 +87,9 @@ const Community = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Convert the isAdmin function to a boolean for component props
+  const isAdminValue = typeof isAdmin === 'function' ? isAdmin() : Boolean(isAdmin);
+
   return (
     <div className="space-y-8">
       <header>
@@ -106,7 +109,7 @@ const Community = () => {
             directMessages={directMessages}
             activeDM={activeDM}
             setActiveDM={setActiveDM}
-            isAdmin={isAdmin}
+            isAdmin={isAdminValue}
             loading={loading}
             onNewChannel={() => setNewChannelDialogOpen(true)}
             onEditChannel={openEditChannelDialog}
@@ -124,7 +127,7 @@ const Community = () => {
             setMessageText={setMessageText}
             loading={loading}
             handleSendMessage={handleSendMessage}
-            isAdmin={isAdmin}
+            isAdmin={isAdminValue}
             onEditChannel={openEditChannelDialog}
             onDeleteChannel={handleDeleteChannel}
             user={user}
