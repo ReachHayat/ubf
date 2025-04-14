@@ -19,6 +19,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
   isAdmin: () => boolean;
   isTutor: () => boolean;
   updateUserProfile: (data: { full_name?: string }) => Promise<void>;
@@ -171,6 +173,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + "/auth?tab=update-password",
+      });
+
+      if (error) {
+        toast({
+          title: "Password reset failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+
+      toast({
+        title: "Password reset email sent",
+        description: "Check your email for a password reset link",
+      });
+    } catch (error) {
+      console.error("Password reset error:", error);
+      toast({
+        title: "Password reset failed",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const updatePassword = async (password: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password,
+      });
+
+      if (error) {
+        toast({
+          title: "Password update failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+
+      toast({
+        title: "Password updated",
+        description: "Your password has been updated successfully.",
+      });
+      navigate("/");
+    } catch (error) {
+      console.error("Password update error:", error);
+      toast({
+        title: "Password update failed",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -270,6 +333,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         signIn,
         signUp,
         signOut,
+        resetPassword,
+        updatePassword,
         isAdmin,
         isTutor,
         updateUserProfile,
