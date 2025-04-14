@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,12 +12,15 @@ import {
   Edit,
   Trash2,
   Plus,
-  User
+  User,
+  Share2,
+  Check
 } from "lucide-react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { 
   getCourseById, 
   updateCourse, 
@@ -28,7 +31,10 @@ import {
   updateCourseAssignment,
   deleteCourseAssignment,
   enrollInCourse,
-  unenrollFromCourse
+  unenrollFromCourse,
+  markVideoAsWatched,
+  isVideoWatched,
+  shareCourse
 } from "@/components/courses/CourseService";
 import { Course, CourseSection, CourseLesson, CourseAssignment } from "@/types/course";
 import { CourseEditDialog, CourseData } from "@/components/admin/CourseEditDialog";
@@ -64,6 +70,20 @@ const CourseDetail = () => {
   // Profile preview
   const [isProfilePreviewOpen, setIsProfilePreviewOpen] = useState(false);
   const [previewUserId, setPreviewUserId] = useState<string>("");
+  
+  // Video player state
+  const [currentVideo, setCurrentVideo] = useState<{
+    lessonId: string;
+    title: string;
+    videoUrl: string;
+  } | null>(null);
+  const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
+  // Share state
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [shareSuccess, setShareSuccess] = useState(false);
 
   // Load course data
   useEffect(() => {
@@ -369,6 +389,71 @@ const CourseDetail = () => {
     setPreviewUserId(userId);
     setIsProfilePreviewOpen(true);
   };
+  
+  // Handle play video
+  const handlePlayVideo = (lessonId: string, title: string) => {
+    const videoUrl = "https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4"; // Default sample video
+    
+    // Find the actual video URL if it exists in the course data
+    if (course && course.sections) {
+      for (const section of course.sections) {
+        const lesson = section.lessons.find(l => l.id === lessonId);
+        if (lesson && lesson.videoUrl) {
+          setCurrentVideo({
+            lessonId,
+            title: lesson.title,
+            videoUrl: lesson.videoUrl
+          });
+          setIsVideoDialogOpen(true);
+          
+          // Mark video as watched when played
+          if (course.id) {
+            markVideoAsWatched(course.id, lessonId);
+          }
+          return;
+        }
+      }
+    }
+    
+    // If no specific video URL is found, use the default
+    setCurrentVideo({
+      lessonId,
+      title,
+      videoUrl
+    });
+    setIsVideoDialogOpen(true);
+    
+    // Mark video as watched when played
+    if (course && course.id) {
+      markVideoAsWatched(course.id, lessonId);
+      
+      // Refresh course data to update progress
+      const updatedCourse = getCourseById(course.id);
+      if (updatedCourse) {
+        setCourse(updatedCourse);
+      }
+    }
+  };
+  
+  // Handle share course
+  const handleShareCourse = () => {
+    if (!course) return;
+    
+    const url = `${window.location.origin}/courses/${course.id}`;
+    setShareUrl(url);
+    setShareSuccess(false);
+    setIsShareDialogOpen(true);
+  };
+  
+  const copyShareLink = () => {
+    shareCourse(course?.id || "");
+    setShareSuccess(true);
+    
+    toast({
+      title: "Link copied!",
+      description: "Course link copied to clipboard"
+    });
+  };
 
   if (loading) {
     return (
@@ -417,7 +502,20 @@ const CourseDetail = () => {
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Button size="icon" className="rounded-full h-16 w-16 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white">
+                  <Button 
+                    size="icon" 
+                    className="rounded-full h-16 w-16 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white"
+                    onClick={() => {
+                      // Play the first lesson if available
+                      if (course.sections && course.sections.length > 0) {
+                        const firstSection = course.sections[0];
+                        if (firstSection.lessons && firstSection.lessons.length > 0) {
+                          const firstLesson = firstSection.lessons[0];
+                          handlePlayVideo(firstLesson.id, firstLesson.title);
+                        }
+                      }
+                    }}
+                  >
                     <PlayCircle className="h-10 w-10" />
                   </Button>
                 </div>
@@ -712,32 +810,53 @@ const CourseDetail = () => {
                     {section.expanded && (
                       <div className="border-t">
                         {section.lessons.length > 0 ? (
-                          section.lessons.map((lesson) => (
-                            <div 
-                              key={lesson.id}
-                              className="p-3 hover:bg-accent/20 flex items-center gap-3 cursor-pointer group"
-                            >
-                              <PlayCircle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                              <div className="flex flex-1 items-center justify-between">
-                                <span className={`text-sm ${lesson.isCompleted ? "line-through text-muted-foreground" : ""}`}>
-                                  {lesson.title}
-                                </span>
-                                <div className="flex items-center">
-                                  <span className="text-xs text-muted-foreground">{lesson.duration}</span>
-                                  {isAdmin() && (
-                                    <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditLesson(lesson, section.id)}>
-                                        <Edit className="h-3 w-3" />
-                                      </Button>
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteLesson(section.id, lesson.id)}>
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  )}
+                          section.lessons.map((lesson) => {
+                            const isLessonWatched = course.id ? isVideoWatched(course.id, lesson.id) : lesson.isCompleted;
+                            
+                            return (
+                              <div 
+                                key={lesson.id}
+                                className="p-3 hover:bg-accent/20 flex items-center gap-3 cursor-pointer group"
+                                onClick={() => handlePlayVideo(lesson.id, lesson.title)}
+                              >
+                                {isLessonWatched ? (
+                                  <div className="h-4 w-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                                    <Check className="h-3 w-3 text-white" />
+                                  </div>
+                                ) : (
+                                  <PlayCircle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                )}
+                                <div className="flex flex-1 items-center justify-between">
+                                  <span className={`text-sm ${isLessonWatched ? "line-through text-muted-foreground" : ""}`}>
+                                    {lesson.title}
+                                  </span>
+                                  <div className="flex items-center">
+                                    <span className="text-xs text-muted-foreground">{lesson.duration}</span>
+                                    {isAdmin() && (
+                                      <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" className="h-6 w-6" 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEditLesson(lesson, section.id);
+                                          }}
+                                        >
+                                          <Edit className="h-3 w-3" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6" 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteLesson(section.id, lesson.id);
+                                          }}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <div className="p-3 text-sm text-muted-foreground text-center">
                             No lessons in this section yet.
@@ -789,7 +908,12 @@ const CourseDetail = () => {
                 </p>
               )}
               <div className="mt-4 text-center">
-                <Button variant="link" className="text-muted-foreground text-sm">
+                <Button 
+                  variant="link" 
+                  className="text-muted-foreground text-sm"
+                  onClick={handleShareCourse}
+                >
+                  <Share2 className="h-4 w-4 mr-1" />
                   Share Course
                 </Button>
               </div>
@@ -798,7 +922,67 @@ const CourseDetail = () => {
         </div>
       </div>
 
-      {/* Edit Dialogs */}
+      {/* Video Dialog */}
+      <Dialog open={isVideoDialogOpen} onOpenChange={setIsVideoDialogOpen}>
+        <DialogContent className="max-w-4xl w-full p-0">
+          <DialogHeader className="p-4">
+            <DialogTitle>{currentVideo?.title}</DialogTitle>
+            <DialogDescription>
+              Watch this lesson to learn more about the course content.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative aspect-video w-full">
+            <video
+              ref={videoRef}
+              className="w-full h-full"
+              controls
+              autoPlay
+              src={currentVideo?.videoUrl}
+            >
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Share Dialog */}
+      <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share this course</DialogTitle>
+            <DialogDescription>
+              Copy the link below to share this course with your friends or colleagues.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center space-x-2 mt-2">
+            <div className="grid flex-1 gap-2">
+              <input
+                className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full"
+                value={shareUrl}
+                readOnly
+              />
+            </div>
+            <Button 
+              type="button" 
+              size="sm" 
+              className="px-3" 
+              onClick={copyShareLink}
+              disabled={shareSuccess}
+            >
+              {shareSuccess ? (
+                <span className="flex items-center">
+                  <Check className="h-4 w-4 mr-1" />
+                  Copied
+                </span>
+              ) : (
+                <span>Copy</span>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Other Dialogs */}
       <CourseEditDialog
         course={course ? {
           id: course.id,

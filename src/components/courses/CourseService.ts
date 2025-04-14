@@ -1,9 +1,11 @@
 
 import { Course, CourseSection, CourseLesson, CourseAssignment, CourseQuiz } from "@/types/course";
+import { supabase } from "@/integrations/supabase/client";
 
 // Local storage keys
 const COURSES_STORAGE_KEY = "ubf_courses";
 const ENROLLED_COURSES_KEY = "ubf_enrolled_courses";
+const WATCHED_VIDEOS_KEY = "ubf_watched_videos";
 
 // Get courses from localStorage or return default
 export const getCourses = (): Course[] => {
@@ -20,6 +22,69 @@ export const saveCourses = (courses: Course[]): void => {
 export const getCourseById = (id: string): Course | undefined => {
   const courses = getCourses();
   return courses.find(course => course.id === id);
+};
+
+// Filter and sort courses
+export const filterAndSortCourses = (
+  courses: Course[],
+  searchQuery: string = "",
+  category: string = "All Categories",
+  sortOption: string = "Most Popular"
+): Course[] => {
+  let filteredCourses = [...courses];
+  
+  // Filter by search query
+  if (searchQuery) {
+    filteredCourses = filteredCourses.filter(course => 
+      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.instructor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.category.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }
+  
+  // Filter by category
+  if (category !== "All Categories") {
+    filteredCourses = filteredCourses.filter(course => course.category === category);
+  }
+  
+  // Sort courses
+  switch (sortOption) {
+    case "Most Popular":
+      filteredCourses.sort((a, b) => (b.reviews || 0) - (a.reviews || 0));
+      break;
+    case "Highest Rated":
+      filteredCourses.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      break;
+    case "Newest":
+      filteredCourses.sort((a, b) => {
+        const dateA = a.lastUpdated ? new Date(a.lastUpdated) : new Date(0);
+        const dateB = b.lastUpdated ? new Date(b.lastUpdated) : new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
+      break;
+    case "Oldest":
+      filteredCourses.sort((a, b) => {
+        const dateA = a.lastUpdated ? new Date(a.lastUpdated) : new Date(0);
+        const dateB = b.lastUpdated ? new Date(b.lastUpdated) : new Date(0);
+        return dateA.getTime() - dateB.getTime();
+      });
+      break;
+    case "Price Low to High":
+      filteredCourses.sort((a, b) => (a.price || 0) - (b.price || 0));
+      break;
+    case "Price High to Low":
+      filteredCourses.sort((a, b) => (b.price || 0) - (a.price || 0));
+      break;
+  }
+  
+  return filteredCourses;
+};
+
+// Get all available categories
+export const getAllCategories = (): string[] => {
+  const courses = getCourses();
+  const categories = ["All Categories", ...new Set(courses.map(course => course.category))];
+  return categories;
 };
 
 // Update course by ID
@@ -78,6 +143,62 @@ export const getEnrolledCourses = (): Course[] => {
   return allCourses.filter(course => enrolledIds.includes(course.id));
 };
 
+// Track watched videos
+export const markVideoAsWatched = (courseId: string, lessonId: string): void => {
+  const watchedVideos = getWatchedVideos();
+  if (!watchedVideos[courseId]) {
+    watchedVideos[courseId] = [];
+  }
+  
+  if (!watchedVideos[courseId].includes(lessonId)) {
+    watchedVideos[courseId].push(lessonId);
+    setWatchedVideos(watchedVideos);
+    
+    // Update course progress
+    const course = getCourseById(courseId);
+    if (course && course.sections) {
+      let totalLessons = 0;
+      let completedLessons = 0;
+      
+      course.sections.forEach(section => {
+        section.lessons.forEach(lesson => {
+          totalLessons++;
+          if (watchedVideos[courseId].includes(lesson.id)) {
+            completedLessons++;
+            // Update lesson completion status
+            lesson.isCompleted = true;
+          }
+        });
+      });
+      
+      const progress = Math.round((completedLessons / totalLessons) * 100);
+      
+      updateCourse({
+        ...course,
+        progress,
+        hoursCompleted: (course.totalHours * progress) / 100
+      });
+    }
+  }
+};
+
+// Check if video is watched
+export const isVideoWatched = (courseId: string, lessonId: string): boolean => {
+  const watchedVideos = getWatchedVideos();
+  return watchedVideos[courseId] && watchedVideos[courseId].includes(lessonId);
+};
+
+// Get all watched videos
+export const getWatchedVideos = (): Record<string, string[]> => {
+  const storedVideos = localStorage.getItem(WATCHED_VIDEOS_KEY);
+  return storedVideos ? JSON.parse(storedVideos) : {};
+};
+
+// Set watched videos
+export const setWatchedVideos = (videos: Record<string, string[]>): void => {
+  localStorage.setItem(WATCHED_VIDEOS_KEY, JSON.stringify(videos));
+};
+
 // Enroll in a course
 export const enrollInCourse = (courseId: string): void => {
   const enrolledIds = getEnrolledCourseIds();
@@ -112,6 +233,13 @@ export const unenrollFromCourse = (courseId: string): void => {
       enrolled: false
     });
   }
+};
+
+// Share course
+export const shareCourse = (courseId: string): void => {
+  const url = `${window.location.origin}/courses/${courseId}`;
+  navigator.clipboard.writeText(url)
+    .catch(err => console.error('Could not copy URL: ', err));
 };
 
 // Update course section
@@ -219,6 +347,53 @@ export const deleteCourseAssignment = (courseId: string, assignmentId: string): 
     course.assignments = course.assignments.filter(assignment => assignment.id !== assignmentId);
     updateCourse(course);
   }
+};
+
+// Get stats for admin dashboard
+export const getAdminStats = () => {
+  const courses = getCourses();
+  const enrolledCourses = getEnrolledCourses();
+  
+  // Count total assignments across all courses
+  const totalAssignments = courses.reduce((total, course) => {
+    return total + (course.assignments?.length || 0);
+  }, 0);
+  
+  // Get users from Supabase (if available)
+  const getUserCount = async () => {
+    try {
+      const { count } = await supabase
+        .from('users')
+        .select('id', { count: 'exact' });
+      
+      return count || 0;
+    } catch (error) {
+      console.error("Error fetching user count:", error);
+      return 0;
+    }
+  };
+  
+  // Get messages count (community posts)
+  const getMessagesCount = async () => {
+    try {
+      const { count } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact' });
+      
+      return count || 0;
+    } catch (error) {
+      console.error("Error fetching messages count:", error);
+      return 0;
+    }
+  };
+  
+  return {
+    courseCount: courses.length,
+    assignmentCount: totalAssignments,
+    enrollmentCount: enrolledCourses.length,
+    getUserCount,
+    getMessagesCount
+  };
 };
 
 // Mock data

@@ -1,68 +1,44 @@
 
-import React from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import MentorCard from "./MentorCard";
 
-const topMentors = [
-  {
-    id: 1,
-    name: "Guy Hawkins",
-    areas: ["Frontend Development", "Backend Development"],
-    courses: 145,
-    followers: 1287,
-    rating: 4.5,
-    path: "/profile/mentor/1"
-  },
-  {
-    id: 2,
-    name: "Crystal Lucas",
-    areas: ["UI / UX Design"],
-    courses: 55,
-    followers: 423,
-    rating: 4.8,
-    path: "/profile/mentor/2"
-  },
-  {
-    id: 3,
-    name: "Melissa Stevens",
-    areas: ["Interaction Design", "Web Design", "Backend Development"],
-    courses: 25,
-    followers: 521,
-    rating: 5.0,
-    path: "/profile/mentor/3"
-  },
-  {
-    id: 4,
-    name: "Peter Russell",
-    areas: ["Android Development", "Version Control"],
-    courses: 215,
-    followers: 112,
-    rating: 4.0,
-    path: "/profile/mentor/4"
-  }
-];
+interface Mentor {
+  id: string;
+  name: string;
+  role: string;
+  avatar?: string;
+}
 
-const TopMentors = () => {
+interface TopMentorsProps {
+  mentors: Mentor[];
+}
+
+const TopMentors = ({ mentors = [] }: TopMentorsProps) => {
+  // Only show up to 4 mentors
+  const displayMentors = mentors.slice(0, 4);
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
+    <section className="space-y-4">
+      <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Top Mentors</h2>
-        <Link to="/community">
-          <Button variant="ghost" className="text-primary" size="sm">
-            View All
-            <ArrowRight className="ml-1 h-4 w-4" />
-          </Button>
-        </Link>
+        <Button variant="ghost" asChild>
+          <Link to="/courses">View All</Link>
+        </Button>
       </div>
-
-      <div className="space-y-4">
-        {topMentors.map((mentor) => (
-          <MentorCard key={mentor.id} {...mentor} />
+      
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {displayMentors.map((mentor) => (
+          <MentorCard
+            key={mentor.id}
+            name={mentor.name}
+            role={mentor.role}
+            avatar={mentor.avatar}
+            id={mentor.id}
+          />
         ))}
       </div>
-    </div>
+    </section>
   );
 };
 

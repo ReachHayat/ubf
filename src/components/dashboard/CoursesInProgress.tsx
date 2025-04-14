@@ -1,91 +1,50 @@
 
-import React, { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Clock } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Course } from "@/types/course";
 import CourseProgressCard from "./CourseProgressCard";
 
-const coursesInProgress = [
-  {
-    id: 1,
-    title: "Learn Angular.js from scratch to experts",
-    category: "Frontend Development",
-    logo: "A",
-    bgColor: "bg-red-500",
-    progress: 80,
-    hoursCompleted: 2.5,
-    totalHours: 4.5
-  },
-  {
-    id: 2,
-    title: "Figma from A to Z",
-    category: "UI/UX Design",
-    logo: "F",
-    bgColor: "bg-blue-500",
-    progress: 35,
-    hoursCompleted: 2.35,
-    totalHours: 4.3
-  },
-  {
-    id: 3,
-    title: "Bitbucket, the complete guide with real world projects",
-    category: "Backend Development",
-    logo: "B",
-    bgColor: "bg-blue-600",
-    progress: 80,
-    hoursCompleted: 2.35,
-    totalHours: 4.3
-  }
-];
+interface CoursesInProgressProps {
+  courses: Course[];
+}
 
-const CoursesInProgress = () => {
-  const [courseStartIndex, setCourseStartIndex] = useState(0);
-  
-  const handleNextCourse = () => {
-    if (courseStartIndex + 3 < coursesInProgress.length) {
-      setCourseStartIndex(courseStartIndex + 1);
-    }
-  };
-
-  const handlePrevCourse = () => {
-    if (courseStartIndex > 0) {
-      setCourseStartIndex(courseStartIndex - 1);
-    }
-  };
-
-  const visibleCourses = coursesInProgress.slice(courseStartIndex, courseStartIndex + 3);
+const CoursesInProgress = ({ courses = [] }: CoursesInProgressProps) => {
+  // Show only enrolled courses with some progress
+  const inProgressCourses = courses.filter(course => course.enrolled);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">Courses In Progress</h2>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className="rounded-full" 
-            onClick={handlePrevCourse}
-            disabled={courseStartIndex === 0}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className="rounded-full"
-            onClick={handleNextCourse}
-            disabled={courseStartIndex + 3 >= coursesInProgress.length}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+    <section className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Courses in Progress</h2>
+        <Button variant="ghost" asChild>
+          <Link to="/courses">View All</Link>
+        </Button>
+      </div>
+      
+      {inProgressCourses.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center p-6">
+            <Clock className="h-12 w-12 text-muted-foreground mb-2" />
+            <h3 className="text-lg font-medium">No courses in progress</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              You haven't started any courses yet. Browse our courses and enroll to get started.
+            </p>
+            <Button asChild>
+              <Link to="/courses">Browse Courses</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {inProgressCourses.slice(0, 3).map(course => (
+            <CourseProgressCard key={course.id} course={course} />
+          ))}
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {visibleCourses.map((course) => (
-          <CourseProgressCard key={course.id} {...course} />
-        ))}
-      </div>
-    </div>
+      )}
+    </section>
   );
 };
 
