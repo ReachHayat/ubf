@@ -1,171 +1,192 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCommunity } from "@/hooks/useCommunity";
-import { CommunitySidebar } from "@/components/community/CommunitySidebar";
-import { ChatArea } from "@/components/community/ChatArea";
-import { ActiveUsersList } from "@/components/community/ActiveUsersList";
-import { ChannelDialog } from "@/components/community/ChannelDialog";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PlusCircle, Search } from "lucide-react";
+import { ForumPost } from "@/components/community/ForumPost";
+import { CreatePostDialog } from "@/components/community/CreatePostDialog";
+import { useForum } from "@/hooks/useForum";
 
 const Community = () => {
   const { user, isAdmin } = useAuth();
-  const [messageText, setMessageText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [newChannelDialogOpen, setNewChannelDialogOpen] = useState(false);
-  const [newChannelName, setNewChannelName] = useState("");
-  const [editChannelDialogOpen, setEditChannelDialogOpen] = useState(false);
-  const [editChannelId, setEditChannelId] = useState("");
-  const [editChannelName, setEditChannelName] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [createPostDialogOpen, setCreatePostDialogOpen] = useState(false);
   
   const { 
-    channels,
-    activeChannel,
-    setActiveChannel,
-    activeDM,
-    setActiveDM,
-    messages,
-    directMessages,
-    activeUsers,
+    posts,
+    categories,
     loading,
-    sendMessage,
-    createChannel,
-    updateChannel,
-    deleteChannel,
-    getInitials
-  } = useCommunity();
+    createPost,
+    approvePost,
+    deletePost,
+    getInitials,
+    fetchPosts
+  } = useForum();
   
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  // Filter posts based on search query
+  const filteredPosts = posts.filter(post => 
+    post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    post.content.toLowerCase().includes(searchQuery.toLowerCase())
+  );
   
-  const handleSendMessage = async () => {
-    if (messageText.trim()) {
-      await sendMessage(messageText);
-      setMessageText("");
-    }
-  };
+  // Get posts that need approval (for admins)
+  const pendingPosts = isAdmin() ? posts.filter(post => !post.approved) : [];
   
-  const handleCreateChannel = async () => {
-    if (!newChannelName.trim()) return;
-    
-    const newChannel = await createChannel(newChannelName);
-    if (newChannel) {
-      setNewChannelName("");
-      setNewChannelDialogOpen(false);
-      setActiveChannel(newChannel);
-    }
-  };
+  // Get approved posts (for all users)
+  const approvedPosts = posts.filter(post => post.approved);
   
-  const handleEditChannel = async () => {
-    if (!editChannelName.trim() || !editChannelId) return;
-    
-    const updatedChannel = await updateChannel(editChannelId, editChannelName);
-    if (updatedChannel) {
-      setEditChannelDialogOpen(false);
-      if (activeChannel?.id === editChannelId) {
-        setActiveChannel(updatedChannel);
-      }
-    }
-  };
-  
-  const handleDeleteChannel = async (channelId: string) => {
-    const success = await deleteChannel(channelId);
-    if (success && activeChannel?.id === channelId) {
-      setActiveChannel(channels[0] || null);
-    }
-  };
-  
-  const openEditChannelDialog = (channel: typeof activeChannel) => {
-    if (!channel) return;
-    setEditChannelId(channel.id);
-    setEditChannelName(channel.name);
-    setEditChannelDialogOpen(true);
-  };
-  
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  // Convert the isAdmin function to a boolean for component props
-  const isAdminValue = typeof isAdmin === 'function' ? isAdmin() : Boolean(isAdmin);
-
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-4xl font-bold">Community</h1>
-        <p className="text-muted-foreground">Connect and collaborate with other learners</p>
+        <h1 className="text-4xl font-bold">Community Forum</h1>
+        <p className="text-muted-foreground">Discuss and share with other community members</p>
       </header>
 
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Sidebar */}
-        <div className="w-full lg:w-1/4">
-          <CommunitySidebar 
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            channels={channels}
-            activeChannel={activeChannel}
-            setActiveChannel={setActiveChannel}
-            directMessages={directMessages}
-            activeDM={activeDM}
-            setActiveDM={setActiveDM}
-            isAdmin={isAdminValue}
-            loading={loading}
-            onNewChannel={() => setNewChannelDialogOpen(true)}
-            onEditChannel={openEditChannelDialog}
-            onDeleteChannel={handleDeleteChannel}
-            getInitials={getInitials}
-          />
+      <div className="flex flex-col gap-6">
+        {/* Search and Create Post */}
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Search posts..." 
+              className="pl-8"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <Button 
+            onClick={() => setCreatePostDialogOpen(true)}
+            className="w-full sm:w-auto"
+          >
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Create Post
+          </Button>
         </div>
         
-        {/* Main Chat Area */}
-        <div className="w-full lg:w-2/4">
-          <ChatArea 
-            activeChannel={activeChannel}
-            messages={messages}
-            messageText={messageText}
-            setMessageText={setMessageText}
-            loading={loading}
-            handleSendMessage={handleSendMessage}
-            isAdmin={isAdminValue}
-            onEditChannel={openEditChannelDialog}
-            onDeleteChannel={handleDeleteChannel}
-            user={user}
-            getInitials={getInitials}
-            messagesEndRef={messagesEndRef}
-          />
-        </div>
-        
-        {/* Active Users */}
-        <div className="w-full lg:w-1/4">
-          <ActiveUsersList 
-            activeUsers={activeUsers}
-            loading={loading}
-            getInitials={getInitials}
-          />
-        </div>
+        {/* Posts Area */}
+        <Card className="p-4">
+          <Tabs defaultValue="all">
+            <TabsList>
+              <TabsTrigger value="all">All Posts</TabsTrigger>
+              {categories.map(category => (
+                <TabsTrigger key={category.id} value={category.id}>
+                  {category.name}
+                </TabsTrigger>
+              ))}
+              {isAdmin() && (
+                <TabsTrigger value="pending" className="relative">
+                  Pending Approval
+                  {pendingPosts.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {pendingPosts.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+              )}
+            </TabsList>
+            
+            <TabsContent value="all" className="mt-4 space-y-4">
+              {loading ? (
+                <div className="text-center py-8">
+                  <p>Loading posts...</p>
+                </div>
+              ) : approvedPosts.length > 0 ? (
+                approvedPosts.map(post => (
+                  <ForumPost 
+                    key={post.id} 
+                    post={post} 
+                    isAdmin={isAdmin()} 
+                    getInitials={getInitials}
+                    onApprove={approvePost}
+                    onDelete={deletePost}
+                  />
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No posts available</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-4"
+                    onClick={() => setCreatePostDialogOpen(true)}
+                  >
+                    Create the first post
+                  </Button>
+                </div>
+              )}
+            </TabsContent>
+            
+            {categories.map(category => (
+              <TabsContent key={category.id} value={category.id} className="mt-4 space-y-4">
+                {loading ? (
+                  <div className="text-center py-8">
+                    <p>Loading posts...</p>
+                  </div>
+                ) : approvedPosts.filter(post => post.category_id === category.id).length > 0 ? (
+                  approvedPosts
+                    .filter(post => post.category_id === category.id)
+                    .map(post => (
+                      <ForumPost 
+                        key={post.id} 
+                        post={post} 
+                        isAdmin={isAdmin()} 
+                        getInitials={getInitials}
+                        onApprove={approvePost}
+                        onDelete={deletePost}
+                      />
+                    ))
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No posts in this category</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4"
+                      onClick={() => setCreatePostDialogOpen(true)}
+                    >
+                      Create the first post in this category
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+            ))}
+            
+            {isAdmin() && (
+              <TabsContent value="pending" className="mt-4 space-y-4">
+                {loading ? (
+                  <div className="text-center py-8">
+                    <p>Loading posts...</p>
+                  </div>
+                ) : pendingPosts.length > 0 ? (
+                  pendingPosts.map(post => (
+                    <ForumPost 
+                      key={post.id} 
+                      post={post} 
+                      isAdmin={true}
+                      getInitials={getInitials}
+                      onApprove={approvePost}
+                      onDelete={deletePost}
+                      isPending
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No posts waiting for approval</p>
+                  </div>
+                )}
+              </TabsContent>
+            )}
+          </Tabs>
+        </Card>
       </div>
       
-      {/* Create Channel Dialog */}
-      <ChannelDialog 
-        open={newChannelDialogOpen}
-        onOpenChange={setNewChannelDialogOpen}
-        title="Create a new channel"
-        channelName={newChannelName}
-        setChannelName={setNewChannelName}
-        onSave={handleCreateChannel}
-        saveButtonText="Create Channel"
-      />
-      
-      {/* Edit Channel Dialog */}
-      <ChannelDialog
-        open={editChannelDialogOpen}
-        onOpenChange={setEditChannelDialogOpen}
-        title="Edit channel"
-        channelName={editChannelName}
-        setChannelName={setEditChannelName}
-        onSave={handleEditChannel}
-        saveButtonText="Save Changes"
+      {/* Create Post Dialog */}
+      <CreatePostDialog
+        open={createPostDialogOpen}
+        onOpenChange={setCreatePostDialogOpen}
+        onSubmit={createPost}
+        categories={categories}
       />
     </div>
   );

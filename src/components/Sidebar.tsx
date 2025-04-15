@@ -3,11 +3,10 @@ import {
   LayoutDashboard, 
   BookOpen, 
   FileCheck, 
-  Users, 
+  MessageSquare, 
   Settings,
   ChevronLeft,
   ChevronRight,
-  Inbox,
   LogOut,
   ShieldCheck
 } from "lucide-react";
@@ -21,8 +20,7 @@ const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: BookOpen, label: "Courses", path: "/courses" },
   { icon: FileCheck, label: "Assignments", path: "/assignments" },
-  { icon: Users, label: "Community", path: "/community" },
-  { icon: Inbox, label: "Inbox", path: "/inbox" },
+  { icon: MessageSquare, label: "Community", path: "/community" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 

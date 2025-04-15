@@ -13,7 +13,6 @@ import Assignments from "./pages/Assignments";
 import Community from "./pages/Community";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
-import Inbox from "./pages/Inbox";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -82,7 +81,6 @@ const App = () => {
                                 <Route path="/community" element={<Community />} />
                                 <Route path="/profile" element={<Profile />} />
                                 <Route path="/settings" element={<Settings />} />
-                                <Route path="/inbox" element={<Inbox />} />
                                 
                                 {/* Admin routes with additional role protection */}
                                 <Route path="/admin/*" element={<Admin />} />

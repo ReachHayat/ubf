@@ -3,212 +3,329 @@ import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/integrations/supabase/client";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/use-toast";
-import { Channel } from "@/hooks/useCommunity";
-import { ChannelDialog } from "@/components/community/ChannelDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { CheckCircle, Trash2, Edit, MessageSquare } from "lucide-react";
+import { Category, Post } from "@/hooks/useForum";
 
 const AdminCommunity: React.FC = () => {
-  const [channels, setChannels] = useState<Channel[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [pendingPosts, setPendingPosts] = useState<Post[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
-  const [newChannelDialogOpen, setNewChannelDialogOpen] = useState(false);
-  const [editChannelDialogOpen, setEditChannelDialogOpen] = useState(false);
-  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
-  const [channelName, setChannelName] = useState("");
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
   
   useEffect(() => {
-    fetchChannels();
+    fetchData();
   }, []);
   
-  const fetchChannels = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('channels')
-        .select('*')
-        .order('name');
-        
-      if (error) throw error;
-      
-      if (data) {
-        // Transform data to ensure type is correct
-        const transformedData: Channel[] = data.map(channel => ({
-          ...channel,
-          // Ensure type is cast to the correct union type
-          type: channel.type === "voice" ? "voice" : "text"
-        }));
-        
-        setChannels(transformedData);
+  const fetchData = () => {
+    setLoading(true);
+    // Mock data - in a real app this would come from Supabase
+    const mockCategories: Category[] = [
+      { id: "general", name: "General Discussion", description: "General topics about the platform" },
+      { id: "questions", name: "Questions & Answers", description: "Get help with your questions" },
+      { id: "resources", name: "Resources & Materials", description: "Share helpful resources" }
+    ];
+    
+    const mockPosts: Post[] = [
+      {
+        id: "1",
+        title: "Welcome to the Community Forum!",
+        content: "This is the official community forum for our platform.",
+        user_id: "admin-123",
+        category_id: "general",
+        approved: true,
+        created_at: new Date().toISOString(),
+        likes: 15,
+        user: {
+          id: "admin-123",
+          email: "admin@example.com",
+          full_name: "Admin User"
+        },
+        category: mockCategories[0]
+      },
+      {
+        id: "3",
+        title: "Free UX Design Resources",
+        content: "I've compiled a list of free UX design resources.",
+        user_id: "user-789",
+        category_id: "resources",
+        approved: false,
+        created_at: new Date(Date.now() - 172800000).toISOString(),
+        likes: 0,
+        user: {
+          id: "user-789",
+          email: "designer@example.com",
+          full_name: "Design Enthusiast"
+        },
+        category: mockCategories[2]
       }
-    } catch (error) {
-      console.error('Error fetching channels:', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to load channels",
-        description: "Please try again or contact support if the issue persists."
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleCreateChannel = async () => {
-    if (!channelName.trim()) return;
+    ];
     
-    try {
-      const { error } = await supabase
-        .from('channels')
-        .insert({
-          name: channelName,
-          type: 'text',
-        });
-        
-      if (error) throw error;
-      
-      toast({
-        title: "Channel created",
-        description: `#${channelName} has been created successfully.`
-      });
-      
-      setChannelName("");
-      setNewChannelDialogOpen(false);
-      fetchChannels();
-    } catch (error) {
-      console.error('Error creating channel:', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to create channel",
-        description: "Please try again or contact support if the issue persists."
-      });
-    }
+    setCategories(mockCategories);
+    setPosts(mockPosts.filter(post => post.approved));
+    setPendingPosts(mockPosts.filter(post => !post.approved));
+    setLoading(false);
   };
   
-  const handleUpdateChannel = async () => {
-    if (!selectedChannel || !channelName.trim()) return;
+  const handleCreateCategory = () => {
+    if (!newCategoryName.trim()) return;
     
-    try {
-      const { error } = await supabase
-        .from('channels')
-        .update({ name: channelName })
-        .eq('id', selectedChannel.id);
-        
-      if (error) throw error;
-      
-      toast({
-        title: "Channel updated",
-        description: `Channel has been renamed to #${channelName}.`
-      });
-      
-      setEditChannelDialogOpen(false);
-      fetchChannels();
-    } catch (error) {
-      console.error('Error updating channel:', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to update channel",
-        description: "Please try again or contact support if the issue persists."
-      });
-    }
+    const newCategory: Category = {
+      id: `category-${Date.now()}`,
+      name: newCategoryName,
+      description: newCategoryDescription
+    };
+    
+    setCategories([...categories, newCategory]);
+    setNewCategoryName("");
+    setNewCategoryDescription("");
+    setCategoryDialogOpen(false);
+    
+    toast({
+      title: "Category created",
+      description: `${newCategoryName} has been created successfully.`
+    });
   };
   
-  const handleDeleteChannel = async (channelId: string) => {
-    if (!confirm("Are you sure you want to delete this channel? This action cannot be undone.")) {
+  const handleDeleteCategory = (categoryId: string) => {
+    if (!confirm("Are you sure you want to delete this category? All posts in this category will be lost.")) {
       return;
     }
     
-    try {
-      const { error } = await supabase
-        .from('channels')
-        .delete()
-        .eq('id', channelId);
-        
-      if (error) throw error;
-      
-      toast({
-        title: "Channel deleted",
-        description: "The channel has been deleted successfully."
-      });
-      
-      fetchChannels();
-    } catch (error) {
-      console.error('Error deleting channel:', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to delete channel",
-        description: "Please try again or contact support if the issue persists."
-      });
+    setCategories(categories.filter(category => category.id !== categoryId));
+    
+    toast({
+      title: "Category deleted",
+      description: "The category has been deleted successfully."
+    });
+  };
+  
+  const handleApprovePost = (postId: string) => {
+    const postToApprove = pendingPosts.find(post => post.id === postId);
+    if (!postToApprove) return;
+    
+    setPendingPosts(pendingPosts.filter(post => post.id !== postId));
+    setPosts([{ ...postToApprove, approved: true }, ...posts]);
+    
+    toast({
+      title: "Post approved",
+      description: "The post is now visible to all users."
+    });
+  };
+  
+  const handleDeletePost = (postId: string, isPending: boolean) => {
+    if (!confirm("Are you sure you want to delete this post?")) {
+      return;
     }
+    
+    if (isPending) {
+      setPendingPosts(pendingPosts.filter(post => post.id !== postId));
+    } else {
+      setPosts(posts.filter(post => post.id !== postId));
+    }
+    
+    toast({
+      title: "Post deleted",
+      description: "The post has been deleted successfully."
+    });
   };
-  
-  const openEditDialog = (channel: Channel) => {
-    setSelectedChannel(channel);
-    setChannelName(channel.name);
-    setEditChannelDialogOpen(true);
-  };
-  
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Community Management</h1>
-        <Button onClick={() => setNewChannelDialogOpen(true)}>Add Channel</Button>
       </div>
       
-      <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Channels</h2>
+      <Tabs defaultValue="categories">
+        <TabsList>
+          <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="pending">
+            Pending Posts 
+            {pendingPosts.length > 0 && (
+              <Badge className="ml-2 bg-red-500">{pendingPosts.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="approved">Approved Posts</TabsTrigger>
+        </TabsList>
         
-        {loading ? (
-          <p>Loading channels...</p>
-        ) : channels.length > 0 ? (
-          <div className="divide-y">
-            {channels.map(channel => (
-              <div key={channel.id} className="py-3 flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">#{channel.name}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Type: {channel.type}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => openEditDialog(channel)}>
-                    Edit
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    onClick={() => handleDeleteChannel(channel.id)}
-                  >
-                    Delete
-                  </Button>
-                </div>
+        <TabsContent value="categories" className="mt-4">
+          <Card className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Forum Categories</h2>
+              <Button onClick={() => setCategoryDialogOpen(true)}>
+                Add Category
+              </Button>
+            </div>
+            
+            {loading ? (
+              <p>Loading categories...</p>
+            ) : categories.length > 0 ? (
+              <div className="divide-y">
+                {categories.map(category => (
+                  <div key={category.id} className="py-3 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium">{category.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {category.description || "No description"}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-4 w-4 mr-1" /> Edit
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => handleDeleteCategory(category.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" /> Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <p>No categories found. Create your first category!</p>
+            )}
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="pending" className="mt-4">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Posts Waiting for Approval</h2>
+            
+            {loading ? (
+              <p>Loading pending posts...</p>
+            ) : pendingPosts.length > 0 ? (
+              <div className="divide-y">
+                {pendingPosts.map(post => (
+                  <div key={post.id} className="py-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-medium">{post.title}</h3>
+                      <Badge className="bg-amber-500">Pending</Badge>
+                    </div>
+                    <p className="text-sm mb-2 line-clamp-2">{post.content}</p>
+                    <div className="flex justify-between items-center">
+                      <div className="text-xs text-muted-foreground">
+                        By {post.user?.full_name || "Unknown"} • {new Date(post.created_at).toLocaleDateString()} • 
+                        <Badge variant="outline" className="ml-2">
+                          {post.category?.name || "Uncategorized"}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleApprovePost(post.id)}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" /> Approve
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => handleDeletePost(post.id, true)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" /> Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <MessageSquare className="h-16 w-16 mx-auto text-muted-foreground/30" />
+                <p className="mt-2 text-muted-foreground">No posts waiting for approval</p>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="approved" className="mt-4">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Approved Posts</h2>
+            
+            {loading ? (
+              <p>Loading approved posts...</p>
+            ) : posts.length > 0 ? (
+              <div className="divide-y">
+                {posts.map(post => (
+                  <div key={post.id} className="py-4">
+                    <h3 className="font-medium">{post.title}</h3>
+                    <p className="text-sm mb-2 line-clamp-2">{post.content}</p>
+                    <div className="flex justify-between items-center">
+                      <div className="text-xs text-muted-foreground">
+                        By {post.user?.full_name || "Unknown"} • {new Date(post.created_at).toLocaleDateString()} • 
+                        <Badge variant="outline" className="ml-2">
+                          {post.category?.name || "Uncategorized"}
+                        </Badge>
+                      </div>
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => handleDeletePost(post.id, false)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" /> Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <MessageSquare className="h-16 w-16 mx-auto text-muted-foreground/30" />
+                <p className="mt-2 text-muted-foreground">No approved posts yet</p>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+      </Tabs>
+      
+      {/* Category Dialog */}
+      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create a new category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="name">Category Name</Label>
+              <Input 
+                id="name" 
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="e.g., Announcements, Help & Support"
+              />
+            </div>
+            <div>
+              <Label htmlFor="description">Description (optional)</Label>
+              <Input 
+                id="description" 
+                value={newCategoryDescription}
+                onChange={(e) => setNewCategoryDescription(e.target.value)}
+                placeholder="Brief description of this category"
+              />
+            </div>
           </div>
-        ) : (
-          <p>No channels found. Create your first channel!</p>
-        )}
-      </Card>
-      
-      {/* Create Channel Dialog */}
-      <ChannelDialog
-        open={newChannelDialogOpen}
-        onOpenChange={setNewChannelDialogOpen}
-        title="Create a new channel"
-        channelName={channelName}
-        setChannelName={setChannelName}
-        onSave={handleCreateChannel}
-        saveButtonText="Create Channel"
-      />
-      
-      {/* Edit Channel Dialog */}
-      <ChannelDialog
-        open={editChannelDialogOpen}
-        onOpenChange={setEditChannelDialogOpen}
-        title="Edit channel"
-        channelName={channelName}
-        setChannelName={setChannelName}
-        onSave={handleUpdateChannel}
-        saveButtonText="Save Changes"
-      />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateCategory} disabled={!newCategoryName.trim()}>Create Category</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
