@@ -110,7 +110,7 @@ export const useAuthActions = (setUser: (user: UserWithRoles | null) => void) =>
         return;
       }
 
-      setUser(prev => {
+      setUser((prev) => {
         if (!prev) return null;
         
         return {

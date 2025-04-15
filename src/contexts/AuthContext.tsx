@@ -25,14 +25,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setSession(newSession);
         
         if (newSession?.user) {
-          const enhancedUser = {
+          const enhancedUser: UserWithRoles = {
             ...newSession.user,
-            fullName: newSession.user.user_metadata?.full_name || ''
+            fullName: newSession.user.user_metadata?.full_name || '',
+            roles: [] // Initialize with empty roles array
           };
           setUser(enhancedUser);
           const userRoles = await fetchUserRoles(newSession.user.id, enhancedUser);
-          if (user) {
-            setUser(prev => prev ? { ...prev, roles: userRoles } : null);
+          if (userRoles.length > 0) {
+            setUser(prev => {
+              if (!prev) return null;
+              return { ...prev, roles: userRoles };
+            });
           }
         } else {
           setUser(null);
@@ -45,9 +49,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setSession(currentSession);
       
       if (currentSession?.user) {
-        const enhancedUser = {
+        const enhancedUser: UserWithRoles = {
           ...currentSession.user,
-          fullName: currentSession.user.user_metadata?.full_name || ''
+          fullName: currentSession.user.user_metadata?.full_name || '',
+          roles: [] // Initialize with empty roles array
         };
         setUser(enhancedUser);
         await fetchUserRoles(currentSession.user.id, enhancedUser);

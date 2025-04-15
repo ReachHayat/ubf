@@ -1,7 +1,6 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Course } from "@/types/course";

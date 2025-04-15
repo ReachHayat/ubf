@@ -31,10 +31,10 @@ const TopMentors = ({ mentors = [] }: TopMentorsProps) => {
         {displayMentors.map((mentor) => (
           <MentorCard
             key={mentor.id}
+            id={mentor.id}
             name={mentor.name}
             role={mentor.role}
             avatar={mentor.avatar}
-            id={mentor.id}
           />
         ))}
       </div>

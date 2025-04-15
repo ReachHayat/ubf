@@ -22,11 +22,15 @@ export const useUserRoles = () => {
 
       if (error) {
         console.error("Error fetching user roles:", error);
-        return;
+        return [];
       }
 
       if (data && data.roles) {
-        let userRoles = data.roles as UserRole[];
+        // Convert string array to UserRole array
+        let userRoles = (data.roles as string[]).filter(role => 
+          role === 'admin' || role === 'tutor' || role === 'student'
+        ) as UserRole[];
+        
         if (isAdminData === true && !userRoles.includes('admin')) {
           userRoles.push('admin');
         }
@@ -34,8 +38,9 @@ export const useUserRoles = () => {
         setRoles(userRoles);
         return userRoles;
       } else if (isAdminData === true) {
-        setRoles(['admin']);
-        return ['admin'];
+        const adminRole: UserRole[] = ['admin'];
+        setRoles(adminRole);
+        return adminRole;
       }
       
       return [];

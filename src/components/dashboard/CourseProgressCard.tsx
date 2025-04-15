@@ -4,52 +4,37 @@ import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Course } from "@/types/course";
 
 type CourseProgressProps = {
-  id: number;
-  title: string;
-  category: string;
-  logo: string;
-  bgColor: string;
-  progress: number;
-  hoursCompleted: number;
-  totalHours: number;
+  course: Course;
 };
 
-const CourseProgressCard = ({
-  id,
-  title,
-  category,
-  logo,
-  bgColor,
-  progress,
-  hoursCompleted,
-  totalHours,
-}: CourseProgressProps) => {
+const CourseProgressCard = ({ course }: CourseProgressProps) => {
   return (
     <Card className="overflow-hidden">
       <div className="p-6">
         <div className="flex items-center gap-3 mb-4">
           <div
-            className={`${bgColor} text-white h-10 w-10 rounded-md flex items-center justify-center font-bold`}
+            className={`${course.bgColor || 'bg-blue-400'} text-white h-10 w-10 rounded-md flex items-center justify-center font-bold`}
           >
-            {logo}
+            {course.logo || '📚'}
           </div>
-          <span className="text-sm text-muted-foreground">{category}</span>
+          <span className="text-sm text-muted-foreground">{course.category}</span>
         </div>
 
-        <h3 className="text-lg font-semibold mb-4">{title}</h3>
+        <h3 className="text-lg font-semibold mb-4">{course.title}</h3>
 
-        <Progress value={progress} className="h-2 mb-2" />
+        <Progress value={course.progress || 0} className="h-2 mb-2" />
 
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            {hoursCompleted}h of {totalHours}h
+            {course.hoursCompleted || 0}h of {course.totalHours}h
           </span>
-          <span className="text-sm font-medium">{progress}%</span>
+          <span className="text-sm font-medium">{course.progress || 0}%</span>
         </div>
 
-        <Link to={`/courses/${id}`}>
+        <Link to={`/courses/${course.id}`}>
           <Button variant="outline" className="w-full mt-4">
             Continue
           </Button>
