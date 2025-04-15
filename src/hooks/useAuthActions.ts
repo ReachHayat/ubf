@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { UserWithRoles } from "@/types/auth";
 
-export const useAuthActions = (setUser: (user: UserWithRoles | null) => void) => {
+export const useAuthActions = (setUser: (user: UserWithRoles | null | ((prev: UserWithRoles | null) => UserWithRoles | null)) => void) => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
 
