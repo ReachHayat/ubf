@@ -342,22 +342,18 @@ const CourseDetail = () => {
     if (!course) return;
     
     if (course.enrolled) {
-      unenrollFromCourse(course.id);
-      toast({
-        title: "Unenrolled",
-        description: "You have successfully unenrolled from this course."
-      });
+      handleContinueLearning();
     } else {
       enrollInCourse(course.id);
       toast({
         title: "Enrolled",
         description: "You have successfully enrolled in this course!"
       });
-    }
-    
-    const updatedCourse = getCourseById(course.id);
-    if (updatedCourse) {
-      setCourse(updatedCourse);
+      
+      const updatedCourse = getCourseById(course.id);
+      if (updatedCourse) {
+        setCourse(updatedCourse);
+      }
     }
   };
 
@@ -422,6 +418,15 @@ const CourseDetail = () => {
       title: "Link copied!",
       description: "Course link copied to clipboard"
     });
+  };
+
+  const handleContinueLearning = () => {
+    if (course && course.sections && course.sections.length > 0) {
+      const firstSection = course.sections[0];
+      if (firstSection.lessons && firstSection.lessons.length > 0) {
+        navigate(`/course-viewer/${course.id}/${firstSection.lessons[0].id}`);
+      }
+    }
   };
 
   if (loading) {

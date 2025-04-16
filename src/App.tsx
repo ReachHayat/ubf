@@ -9,6 +9,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import Sidebar from "@/components/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import Courses from "./pages/Courses";
+import CourseDetail from "./pages/CourseDetail";
+import CourseViewer from "./pages/CourseViewer";
 import Assignments from "./pages/Assignments";
 import Community from "./pages/Community";
 import Profile from "./pages/Profile";
@@ -86,41 +88,49 @@ const App = () => {
             <TooltipProvider>
               <Toaster />
               <Sonner />
-              <div className="flex min-h-screen bg-background">
-                <Routes>
-                  {/* Auth page - publicly accessible */}
-                  <Route path="/auth" element={<Auth />} />
-                  
-                  {/* Protected routes that require authentication */}
-                  <Route element={<ProtectedRoute />}>
-                    <Route
-                      path="*"
-                      element={
-                        <>
-                          <Sidebar onToggle={toggleSidebar} collapsed={sidebarCollapsed} />
-                          <main className="flex-1 ml-64 p-8 transition-all duration-300" id="main-content">
-                            <ErrorBoundary>
-                              <div className="max-w-7xl mx-auto">
-                                <Routes>
-                                  <Route path="/" element={<Dashboard />} />
-                                  <Route path="/courses/*" element={<Courses />} />
-                                  <Route path="/assignments" element={<Assignments />} />
-                                  <Route path="/community" element={<Community />} />
-                                  <Route path="/profile" element={<Profile />} />
-                                  <Route path="/settings" element={<Settings />} />
-                                  
-                                  {/* Admin routes with additional role protection */}
-                                  <Route path="/admin/*" element={<Admin />} />
-                                </Routes>
-                              </div>
-                            </ErrorBoundary>
-                          </main>
-                        </>
-                      }
-                    />
-                  </Route>
-                </Routes>
-              </div>
+              <ErrorBoundary>
+                <div className="flex min-h-screen bg-background">
+                  <Routes>
+                    {/* Auth page - publicly accessible */}
+                    <Route path="/auth" element={<Auth />} />
+                    
+                    {/* Course Viewer - no sidebar */}
+                    <Route element={<ProtectedRoute />}>
+                      <Route path="/course-viewer/:id/:lessonId?" element={<CourseViewer />} />
+                    </Route>
+                    
+                    {/* Protected routes that require authentication */}
+                    <Route element={<ProtectedRoute />}>
+                      <Route
+                        path="*"
+                        element={
+                          <>
+                            <Sidebar onToggle={toggleSidebar} collapsed={sidebarCollapsed} />
+                            <main className="flex-1 ml-64 p-8 transition-all duration-300" id="main-content">
+                              <ErrorBoundary>
+                                <div className="max-w-7xl mx-auto">
+                                  <Routes>
+                                    <Route path="/" element={<Dashboard />} />
+                                    <Route path="/courses" element={<Courses />} />
+                                    <Route path="/courses/:id" element={<CourseDetail />} />
+                                    <Route path="/assignments" element={<Assignments />} />
+                                    <Route path="/community" element={<Community />} />
+                                    <Route path="/profile" element={<Profile />} />
+                                    <Route path="/settings" element={<Settings />} />
+                                    
+                                    {/* Admin routes with additional role protection */}
+                                    <Route path="/admin/*" element={<Admin />} />
+                                  </Routes>
+                                </div>
+                              </ErrorBoundary>
+                            </main>
+                          </>
+                        }
+                      />
+                    </Route>
+                  </Routes>
+                </div>
+              </ErrorBoundary>
             </TooltipProvider>
           </ThemeProvider>
         </AuthProvider>

@@ -22,6 +22,7 @@ export interface Comment {
     email: string;
     full_name?: string;
   };
+  likes?: number;
 }
 
 export interface Post {
@@ -40,11 +41,13 @@ export interface Post {
     full_name?: string;
   };
   category?: Category;
+  media?: {type: string, url: string}[];
 }
 
 export const useForum = () => {
   const { user, isAdmin } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
+  const [bookmarkedPosts, setBookmarkedPosts] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>([
     { id: "general", name: "General Discussion" },
     { id: "questions", name: "Questions & Answers" },
@@ -54,7 +57,8 @@ export const useForum = () => {
 
   useEffect(() => {
     fetchPosts();
-  }, []);
+    fetchBookmarks();
+  }, [user]);
 
   const fetchPosts = async () => {
     try {
@@ -90,7 +94,14 @@ export const useForum = () => {
                 id: "user-456",
                 email: "user@example.com",
                 full_name: "Regular User"
-              }
+              },
+              likes: 2
+            }
+          ],
+          media: [
+            {
+              type: "image",
+              url: "https://images.unsplash.com/photo-1531482615713-2afd69097998?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
             }
           ]
         },
@@ -126,7 +137,13 @@ export const useForum = () => {
             full_name: "Design Enthusiast"
           },
           category: { id: "resources", name: "Resources & Materials" },
-          comments: []
+          comments: [],
+          media: [
+            {
+              type: "image",
+              url: "https://images.unsplash.com/photo-1586717799252-bd134ad00e26?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
+            }
+          ]
         }
       ];
       
@@ -143,7 +160,59 @@ export const useForum = () => {
     }
   };
 
-  const createPost = async (title: string, content: string, categoryId: string) => {
+  const fetchBookmarks = async () => {
+    if (!user) return;
+    
+    try {
+      // In a real implementation, we would fetch from Supabase
+      // For now, just retrieve from localStorage
+      const bookmarks = JSON.parse(localStorage.getItem(`forum-bookmarks-${user.id}`) || "[]");
+      setBookmarkedPosts(bookmarks);
+    } catch (error) {
+      console.error("Error fetching bookmarks:", error);
+    }
+  };
+
+  const toggleBookmark = async (postId: string) => {
+    if (!user) return;
+    
+    try {
+      const bookmarksKey = `forum-bookmarks-${user.id}`;
+      let bookmarks = JSON.parse(localStorage.getItem(bookmarksKey) || "[]");
+      
+      if (bookmarks.includes(postId)) {
+        // Remove bookmark
+        bookmarks = bookmarks.filter((id: string) => id !== postId);
+        toast({
+          title: "Bookmark removed",
+          description: "The post has been removed from your bookmarks."
+        });
+      } else {
+        // Add bookmark
+        bookmarks.push(postId);
+        toast({
+          title: "Post bookmarked",
+          description: "The post has been added to your bookmarks."
+        });
+      }
+      
+      localStorage.setItem(bookmarksKey, JSON.stringify(bookmarks));
+      setBookmarkedPosts(bookmarks);
+    } catch (error) {
+      console.error("Error toggling bookmark:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to update bookmark",
+        description: "Please try again later."
+      });
+    }
+  };
+
+  const isBookmarked = (postId: string) => {
+    return bookmarkedPosts.includes(postId);
+  };
+
+  const createPost = async (title: string, content: string, categoryId: string, media?: any[]) => {
     if (!user) {
       toast({
         variant: "destructive",
@@ -170,7 +239,8 @@ export const useForum = () => {
           email: user.email || "",
           full_name: user.user_metadata?.full_name || ""
         },
-        category: categories.find(c => c.id === categoryId)
+        category: categories.find(c => c.id === categoryId),
+        media: media || []
       };
       
       setPosts([newPost, ...posts]);
@@ -234,6 +304,42 @@ export const useForum = () => {
     }
   };
 
+  const likePost = async (postId: string) => {
+    try {
+      // In a real implementation, we would update the Supabase record here
+      setPosts(posts.map(post => 
+        post.id === postId 
+          ? { ...post, likes: post.likes + 1 } 
+          : post
+      ));
+    } catch (error) {
+      console.error("Error liking post:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to like post",
+        description: "Please try again or contact support if the issue persists."
+      });
+    }
+  };
+
+  const unlikePost = async (postId: string) => {
+    try {
+      // In a real implementation, we would update the Supabase record here
+      setPosts(posts.map(post => 
+        post.id === postId 
+          ? { ...post, likes: Math.max(0, post.likes - 1) } 
+          : post
+      ));
+    } catch (error) {
+      console.error("Error unliking post:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to unlike post",
+        description: "Please try again or contact support if the issue persists."
+      });
+    }
+  };
+
   const getInitials = (name: string) => {
     if (!name) return "U";
     return name
@@ -248,10 +354,15 @@ export const useForum = () => {
     posts,
     categories,
     loading,
+    bookmarkedPosts,
     createPost,
     approvePost,
     deletePost,
     fetchPosts,
-    getInitials
+    getInitials,
+    toggleBookmark,
+    isBookmarked,
+    likePost,
+    unlikePost
   };
 };
