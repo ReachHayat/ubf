@@ -3,7 +3,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Star, Clock, Edit } from "lucide-react";
+import { Star, Clock, Edit, ChevronLeft } from "lucide-react";
 
 interface CourseHeaderProps {
   course: {

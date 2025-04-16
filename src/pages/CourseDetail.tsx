@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Share2, Check } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Share2, Check, Plus, Edit, Trash2, ChevronUp, ChevronDown, PlayCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -33,6 +35,12 @@ import { AssignmentEditor } from "@/components/courses/AssignmentEditor";
 import { QuizEditor } from "@/components/courses/QuizEditor";
 import { UserProfilePreview } from "@/components/profile/UserProfilePreview";
 
+interface VideoData {
+  lessonId: string;
+  title: string;
+  videoUrl: string;
+}
+
 const CourseDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -59,6 +67,7 @@ const CourseDetail = () => {
   
   const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [currentVideo, setCurrentVideo] = useState<VideoData | null>(null);
   
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
@@ -440,7 +449,16 @@ const CourseDetail = () => {
   return (
     <div className="space-y-6">
       <CourseHeader 
-        course={course} 
+        course={{
+          id: course.id,
+          title: course.title,
+          category: course.category,
+          rating: course.rating,
+          reviews: course.reviews,
+          totalHours: course.totalHours,
+          sections: course.sections || [],
+          thumbnail: course.thumbnail
+        }}
         isAdmin={isAdmin()} 
         onEdit={handleEditCourse}
       />
