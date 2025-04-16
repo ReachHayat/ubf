@@ -17,15 +17,27 @@ import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30000,
+    },
+  },
+});
 
 const App = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Set document title
     document.title = "The Ultimate Brand Framework";
+    
+    // Simulate initial load
+    const timer = setTimeout(() => setIsLoading(false), 300);
     
     const mainContent = document.getElementById("main-content");
     if (mainContent) {
@@ -45,12 +57,26 @@ const App = () => {
     };
 
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(timer);
+    };
   }, [sidebarCollapsed]);
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center">
+          <div className="h-16 w-16 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-lg font-medium">Loading application...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -73,19 +99,21 @@ const App = () => {
                         <>
                           <Sidebar onToggle={toggleSidebar} collapsed={sidebarCollapsed} />
                           <main className="flex-1 ml-64 p-8 transition-all duration-300" id="main-content">
-                            <div className="max-w-7xl mx-auto">
-                              <Routes>
-                                <Route path="/" element={<Dashboard />} />
-                                <Route path="/courses/*" element={<Courses />} />
-                                <Route path="/assignments" element={<Assignments />} />
-                                <Route path="/community" element={<Community />} />
-                                <Route path="/profile" element={<Profile />} />
-                                <Route path="/settings" element={<Settings />} />
-                                
-                                {/* Admin routes with additional role protection */}
-                                <Route path="/admin/*" element={<Admin />} />
-                              </Routes>
-                            </div>
+                            <ErrorBoundary>
+                              <div className="max-w-7xl mx-auto">
+                                <Routes>
+                                  <Route path="/" element={<Dashboard />} />
+                                  <Route path="/courses/*" element={<Courses />} />
+                                  <Route path="/assignments" element={<Assignments />} />
+                                  <Route path="/community" element={<Community />} />
+                                  <Route path="/profile" element={<Profile />} />
+                                  <Route path="/settings" element={<Settings />} />
+                                  
+                                  {/* Admin routes with additional role protection */}
+                                  <Route path="/admin/*" element={<Admin />} />
+                                </Routes>
+                              </div>
+                            </ErrorBoundary>
                           </main>
                         </>
                       }
