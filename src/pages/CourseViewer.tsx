@@ -2,10 +2,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { 
-  Tabs, TabsContent, TabsList, TabsTrigger,
-  Card, Badge, Button, Dialog, DialogContent,
-  DialogHeader, DialogTitle, DialogDescription
-} from "@/components/ui/";
+  Tabs, TabsContent, TabsList, TabsTrigger 
+} from "@/components/ui/tabs";
+import { 
+  Card, CardContent, CardHeader, CardTitle, CardDescription
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { 
   X, Download, BookOpen, FileText, MessageSquare, 
   ExternalLink, Save, Bookmark, BookmarkCheck

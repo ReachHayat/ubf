@@ -1,4 +1,3 @@
-
 export interface CourseLesson {
   id: string;
   title: string;
@@ -6,6 +5,9 @@ export interface CourseLesson {
   isCompleted?: boolean;
   content?: string;
   videoUrl?: string;
+  thumbnail?: string;
+  transcript?: string;
+  section_title?: string;
 }
 
 export interface CourseSection {

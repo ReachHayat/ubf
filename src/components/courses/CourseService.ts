@@ -1,4 +1,3 @@
-
 import { Course, CourseSection, CourseLesson, CourseAssignment, CourseQuiz } from "@/types/course";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -588,3 +587,22 @@ if (!localStorage.getItem(ENROLLED_COURSES_KEY)) {
   // Default to the first course being enrolled
   setEnrolledCourseIds(["1"]);
 }
+
+// Update user's notes for a specific lesson
+export const updateUserNotes = (userId: string, lessonId: string, noteContent: string): void => {
+  try {
+    // In a real implementation, this would save to Supabase
+    // For now, we'll use localStorage
+    const notesKey = `user-notes-${userId}`;
+    const userNotes = JSON.parse(localStorage.getItem(notesKey) || "{}");
+    
+    userNotes[lessonId] = {
+      content: noteContent,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    localStorage.setItem(notesKey, JSON.stringify(userNotes));
+  } catch (error) {
+    console.error("Error updating user notes:", error);
+  }
+};

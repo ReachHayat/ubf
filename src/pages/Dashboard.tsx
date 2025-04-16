@@ -9,6 +9,7 @@ import TopMentors from "@/components/dashboard/TopMentors";
 import BookmarkedCourses from "@/components/dashboard/BookmarkedCourses";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
+import { getCourses, getEnrolledCourses } from "@/components/courses/CourseService";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -21,8 +22,34 @@ const Dashboard = () => {
     content: string;
     updatedAt: string;
   }[]>([]);
+  const [courses, setCourses] = useState([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [mentors, setMentors] = useState([]);
 
   useEffect(() => {
+    // Fetch all courses
+    const allCourses = getCourses();
+    // Filter for enrolled courses
+    const enrolledCourses = getEnrolledCourses();
+    setCourses(enrolledCourses);
+    
+    // Extract unique categories from courses
+    const uniqueCategories = [...new Set(allCourses.map(course => course.category))];
+    setCategories(uniqueCategories);
+    
+    // Create list of mentors from course instructors
+    const instructors = allCourses.map(course => ({
+      id: course.instructor.id,
+      name: course.instructor.name,
+      role: course.instructor.role,
+      avatar: course.instructor.avatar
+    }));
+    // Remove duplicates based on id
+    const uniqueMentors = instructors.filter((mentor, index, self) => 
+      index === self.findIndex(m => m.id === mentor.id)
+    );
+    setMentors(uniqueMentors);
+
     // Fetch latest notes (mock data for now)
     if (user) {
       // In a real app, we'd fetch from Supabase
@@ -63,7 +90,7 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
-          <CoursesInProgress />
+          <CoursesInProgress courses={courses} />
           
           {/* Latest Notes */}
           <Card>
@@ -115,11 +142,11 @@ const Dashboard = () => {
             </CardContent>
           </Card>
           
-          <PopularCategories />
+          <PopularCategories categories={categories} />
         </div>
         <div className="space-y-6">
           <BookmarkedCourses />
-          <TopMentors />
+          <TopMentors mentors={mentors} />
         </div>
       </div>
     </div>
