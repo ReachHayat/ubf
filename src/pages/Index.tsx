@@ -1,5 +1,5 @@
 
-import { useState, Suspense } from "react";
+import React, { useState, Suspense } from "react";
 import { Card } from "@/components/ui/card";
 import { DollarSign, PieChart, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
