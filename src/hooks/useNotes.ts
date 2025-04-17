@@ -30,11 +30,12 @@ export const useNotes = () => {
     try {
       setLoading(true);
       
+      // Using generic query to avoid TypeScript errors
       const { data, error } = await supabase
         .from('notes')
         .select('*')
         .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
+        .order('updated_at', { ascending: false }) as { data: Note[] | null, error: any };
         
       if (error) throw error;
       
@@ -66,7 +67,7 @@ export const useNotes = () => {
       const existingNote = notes.find(n => n.lesson_id === lessonId && n.course_id === courseId);
       
       if (existingNote) {
-        // Update existing note
+        // Update existing note - using generic query
         const { data, error } = await supabase
           .from('notes')
           .update({ 
@@ -74,7 +75,7 @@ export const useNotes = () => {
             updated_at: new Date().toISOString()
           })
           .eq('id', existingNote.id)
-          .select();
+          .select() as { data: Note[] | null, error: any };
           
         if (error) throw error;
         
@@ -83,7 +84,7 @@ export const useNotes = () => {
           return data[0] as Note;
         }
       } else {
-        // Create new note
+        // Create new note - using generic query
         const newNote = {
           user_id: user.id,
           lesson_id: lessonId,
@@ -94,7 +95,7 @@ export const useNotes = () => {
         const { data, error } = await supabase
           .from('notes')
           .insert(newNote)
-          .select();
+          .select() as { data: Note[] | null, error: any };
           
         if (error) throw error;
         
@@ -129,10 +130,11 @@ export const useNotes = () => {
     if (!user) return false;
     
     try {
+      // Using generic query
       const { error } = await supabase
         .from('notes')
         .delete()
-        .eq('id', noteId);
+        .eq('id', noteId) as { error: any };
         
       if (error) throw error;
       

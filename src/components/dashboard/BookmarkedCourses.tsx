@@ -28,14 +28,14 @@ const BookmarkedCourses = () => {
       try {
         setLoading(true);
         
-        // Fetch from Supabase
+        // Fetch from Supabase - using generic query to avoid TypeScript errors
         const { data, error } = await supabase
           .from('bookmarks')
           .select('*')
           .eq('user_id', user.id)
           .eq('content_type', 'lesson')
           .order('created_at', { ascending: false })
-          .limit(5);
+          .limit(5) as { data: any[] | null, error: any };
           
         if (error) throw error;
         

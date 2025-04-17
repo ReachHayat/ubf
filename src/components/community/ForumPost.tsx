@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,11 +75,10 @@ export const ForumPost: React.FC<ForumPostProps> = ({
             .select('id')
             .eq('user_id', user.id)
             .eq('post_id', post.id)
-            .single();
+            .single() as { data: any, error: any };
             
           setLiked(!!data);
         } catch (error) {
-          // Not liked yet
           setLiked(false);
         }
       }
@@ -111,24 +109,22 @@ export const ForumPost: React.FC<ForumPostProps> = ({
         .select(`
           *,
           user:users(id, email, name, full_name, avatar_url)
-        `);
+        `) as { data: any[], error: any };
         
       if (error) throw error;
       
       if (data && data.length > 0) {
-        // Add the comment to the post
         if (!post.comments) {
           post.comments = [];
         }
         
         post.comments.push(data[0]);
+        setCommentText("");
+        toast({
+          title: "Comment submitted",
+          description: "Your comment has been added to the post."
+        });
       }
-      
-      setCommentText("");
-      toast({
-        title: "Comment submitted",
-        description: "Your comment has been added to the post."
-      });
     } catch (error) {
       console.error("Error submitting comment:", error);
       toast({
@@ -163,21 +159,19 @@ export const ForumPost: React.FC<ForumPostProps> = ({
       }
     } else {
       try {
-        // Check if user has already liked this post
         const { data: existingLike, error: checkError } = await supabase
           .from('post_likes')
           .select('*')
           .eq('user_id', user.id)
-          .eq('post_id', post.id);
+          .eq('post_id', post.id) as { data: any[], error: any };
         
         if (checkError) throw checkError;
         
         if (existingLike && existingLike.length > 0) {
-          // User already liked this post, remove the like
           const { error: deleteError } = await supabase
             .from('post_likes')
             .delete()
-            .eq('id', existingLike[0].id);
+            .eq('id', existingLike[0].id) as { error: any };
           
           if (deleteError) throw deleteError;
           
@@ -189,10 +183,9 @@ export const ForumPost: React.FC<ForumPostProps> = ({
             description: "You have removed your like from this post"
           });
         } else {
-          // Add new like
           const { error: insertError } = await supabase
             .from('post_likes')
-            .insert({ user_id: user.id, post_id: post.id });
+            .insert({ user_id: user.id, post_id: post.id }) as { error: any };
           
           if (insertError) throw insertError;
           
@@ -240,22 +233,20 @@ export const ForumPost: React.FC<ForumPostProps> = ({
       }
     } else {
       try {
-        // Check if post is already bookmarked
         const { data: existingBookmark, error: checkError } = await supabase
           .from('bookmarks')
           .select('*')
           .eq('user_id', user.id)
           .eq('content_id', post.id)
-          .eq('content_type', 'post');
+          .eq('content_type', 'post') as { data: any[], error: any };
         
         if (checkError) throw checkError;
         
         if (existingBookmark && existingBookmark.length > 0) {
-          // Remove bookmark
           const { error: deleteError } = await supabase
             .from('bookmarks')
             .delete()
-            .eq('id', existingBookmark[0].id);
+            .eq('id', existingBookmark[0].id) as { error: any };
           
           if (deleteError) throw deleteError;
           
@@ -266,7 +257,6 @@ export const ForumPost: React.FC<ForumPostProps> = ({
             description: "This post has been removed from your bookmarks"
           });
         } else {
-          // Add bookmark
           const { error: insertError } = await supabase
             .from('bookmarks')
             .insert({
@@ -275,7 +265,7 @@ export const ForumPost: React.FC<ForumPostProps> = ({
               content_type: 'post',
               title: post.title,
               description: post.content
-            });
+            }) as { error: any };
           
           if (insertError) throw insertError;
           
@@ -298,7 +288,6 @@ export const ForumPost: React.FC<ForumPostProps> = ({
   };
   
   const handleShare = () => {
-    // Generate a shareable URL
     const url = `${window.location.origin}/community/post/${post.id}`;
     setShareUrl(url);
     setShareSuccess(false);
@@ -375,7 +364,6 @@ export const ForumPost: React.FC<ForumPostProps> = ({
             <h3 className="font-semibold mt-2 text-lg">{post.title}</h3>
             <p className="mt-2">{post.content}</p>
             
-            {/* Media display (images or videos) */}
             {post.media && post.media.length > 0 && (
               <div className="mt-4 space-y-2">
                 {post.media.map((media: any, index: number) => (

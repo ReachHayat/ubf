@@ -72,14 +72,14 @@ export const useForum = () => {
     try {
       setLoading(true);
       
-      // In a real implementation, we'd fetch from Supabase
+      // Using generic query
       const { data: postsData, error: postsError } = await supabase
         .from('community_posts')
         .select(`
           *,
           user:users(id, email, name, full_name, avatar_url)
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }) as { data: any[] | null, error: any };
       
       if (postsError) throw postsError;
       
@@ -87,6 +87,7 @@ export const useForum = () => {
       let processedPosts: Post[] = [];
       
       for (const post of (postsData || [])) {
+        // Using generic query
         const { data: commentsData, error: commentsError } = await supabase
           .from('post_comments')
           .select(`
@@ -94,15 +95,15 @@ export const useForum = () => {
             user:users(id, email, name, full_name, avatar_url)
           `)
           .eq('post_id', post.id)
-          .order('created_at', { ascending: true });
+          .order('created_at', { ascending: true }) as { data: any[] | null, error: any };
           
         if (commentsError) throw commentsError;
         
-        // Get like count for this post
+        // Get like count for this post - using generic query
         const { count: likesCount, error: likesError } = await supabase
           .from('post_likes')
           .select('*', { count: 'exact', head: true })
-          .eq('post_id', post.id);
+          .eq('post_id', post.id) as { count: number | null, error: any };
           
         if (likesError) throw likesError;
         
@@ -137,7 +138,7 @@ export const useForum = () => {
     }
     
     try {
-      // Insert the new post to Supabase
+      // Insert the new post to Supabase - using generic query
       const newPost = {
         title,
         content,
@@ -153,7 +154,7 @@ export const useForum = () => {
         .select(`
           *,
           user:users(id, email, name, full_name, avatar_url)
-        `);
+        `) as { data: any[] | null, error: any };
       
       if (error) throw error;
       
@@ -182,11 +183,12 @@ export const useForum = () => {
 
   const approvePost = async (postId: string) => {
     try {
+      // Using generic query
       const { data, error } = await supabase
         .from('community_posts')
         .update({ approved: true })
         .eq('id', postId)
-        .select();
+        .select() as { data: any[] | null, error: any };
       
       if (error) throw error;
       
@@ -212,14 +214,15 @@ export const useForum = () => {
 
   const deletePost = async (postId: string) => {
     try {
+      // Using generic query
       const { error } = await supabase
         .from('community_posts')
         .delete()
-        .eq('id', postId);
+        .eq('id', postId) as { error: any };
       
       if (error) throw error;
       
-      // Delete any likes and comments associated with the post
+      // Delete any likes and comments associated with the post - using generic query
       await Promise.all([
         supabase.from('post_likes').delete().eq('post_id', postId),
         supabase.from('post_comments').delete().eq('post_id', postId)
@@ -252,21 +255,21 @@ export const useForum = () => {
     }
     
     try {
-      // Check if user has already liked this post
+      // Check if user has already liked this post - using generic query
       const { data: existingLike, error: checkError } = await supabase
         .from('post_likes')
         .select('*')
         .eq('user_id', user.id)
-        .eq('post_id', postId);
+        .eq('post_id', postId) as { data: any[] | null, error: any };
       
       if (checkError) throw checkError;
       
       if (existingLike && existingLike.length > 0) {
-        // User already liked this post, remove the like
+        // User already liked this post, remove the like - using generic query
         const { error: deleteError } = await supabase
           .from('post_likes')
           .delete()
-          .eq('id', existingLike[0].id);
+          .eq('id', existingLike[0].id) as { error: any };
         
         if (deleteError) throw deleteError;
         
@@ -279,10 +282,10 @@ export const useForum = () => {
         
         return false; // Not liked anymore
       } else {
-        // Add new like
+        // Add new like - using generic query
         const { error: insertError } = await supabase
           .from('post_likes')
-          .insert({ user_id: user.id, post_id: postId });
+          .insert({ user_id: user.id, post_id: postId }) as { error: any };
         
         if (insertError) throw insertError;
         
@@ -310,11 +313,12 @@ export const useForum = () => {
     if (!user) return false;
     
     try {
+      // Using generic query
       const { data, error } = await supabase
         .from('post_likes')
         .select('*')
         .eq('user_id', user.id)
-        .eq('post_id', postId);
+        .eq('post_id', postId) as { data: any[] | null, error: any };
       
       if (error) throw error;
       
@@ -343,13 +347,14 @@ export const useForum = () => {
         approved: true // Comments are auto-approved by default
       };
       
+      // Using generic query
       const { data, error } = await supabase
         .from('post_comments')
         .insert(newComment)
         .select(`
           *,
           user:users(id, email, name, full_name, avatar_url)
-        `);
+        `) as { data: any[] | null, error: any };
       
       if (error) throw error;
       

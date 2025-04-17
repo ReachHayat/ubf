@@ -31,11 +31,12 @@ export const useBookmarks = () => {
     try {
       setLoading(true);
       
+      // Using the generic query method to avoid TypeScript errors with tables not in types.ts
       const { data, error } = await supabase
         .from('bookmarks')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }) as { data: Bookmark[] | null, error: any };
         
       if (error) throw error;
       
@@ -75,11 +76,11 @@ export const useBookmarks = () => {
       );
       
       if (existingBookmark) {
-        // Remove bookmark
+        // Remove bookmark - using generic query to avoid TypeScript errors
         const { error } = await supabase
           .from('bookmarks')
           .delete()
-          .eq('id', existingBookmark.id);
+          .eq('id', existingBookmark.id) as { error: any };
           
         if (error) throw error;
         
@@ -92,7 +93,7 @@ export const useBookmarks = () => {
         
         return false;
       } else {
-        // Add bookmark
+        // Add bookmark - using generic query to avoid TypeScript errors
         const newBookmark = {
           user_id: user.id,
           content_id: contentId,
@@ -105,7 +106,7 @@ export const useBookmarks = () => {
         const { data, error } = await supabase
           .from('bookmarks')
           .insert(newBookmark)
-          .select();
+          .select() as { data: Bookmark[] | null, error: any };
           
         if (error) throw error;
         
