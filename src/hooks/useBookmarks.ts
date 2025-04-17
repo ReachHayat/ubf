@@ -31,12 +31,7 @@ export const useBookmarks = () => {
     try {
       setLoading(true);
       
-      // Using the generic query method to avoid TypeScript errors with tables not in types.ts
-      const { data, error } = await supabase
-        .from('bookmarks')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false }) as { data: Bookmark[] | null, error: any };
+      const { data, error } = await supabase.rpc('get_user_bookmarks') as any;
         
       if (error) throw error;
       
@@ -70,48 +65,27 @@ export const useBookmarks = () => {
     }
     
     try {
-      // Check if item is already bookmarked
-      const existingBookmark = bookmarks.find(
-        b => b.content_id === contentId && b.content_type === contentType
-      );
+      const { data, error } = await supabase.rpc('toggle_bookmark', {
+        user_id_param: user.id,
+        content_id_param: contentId,
+        content_type_param: contentType,
+        title_param: title,
+        description_param: description || '',
+        thumbnail_param: thumbnail || ''
+      }) as any;
       
-      if (existingBookmark) {
-        // Remove bookmark - using generic query to avoid TypeScript errors
-        const { error } = await supabase
-          .from('bookmarks')
-          .delete()
-          .eq('id', existingBookmark.id) as { error: any };
-          
-        if (error) throw error;
+      if (error) throw error;
+      
+      if (data === true) {
+        // Bookmark was added - fetch the new bookmark to add to state
+        const { data: newBookmark } = await supabase.rpc('get_bookmark', {
+          user_id_param: user.id,
+          content_id_param: contentId,
+          content_type_param: contentType
+        }) as any;
         
-        setBookmarks(bookmarks.filter(b => b.id !== existingBookmark.id));
-        
-        toast({
-          title: "Bookmark removed",
-          description: `Item removed from your bookmarks.`
-        });
-        
-        return false;
-      } else {
-        // Add bookmark - using generic query to avoid TypeScript errors
-        const newBookmark = {
-          user_id: user.id,
-          content_id: contentId,
-          content_type: contentType,
-          title,
-          description,
-          thumbnail
-        };
-        
-        const { data, error } = await supabase
-          .from('bookmarks')
-          .insert(newBookmark)
-          .select() as { data: Bookmark[] | null, error: any };
-          
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          setBookmarks([...bookmarks, data[0] as Bookmark]);
+        if (newBookmark) {
+          setBookmarks([...bookmarks, newBookmark]);
         }
         
         toast({
@@ -120,6 +94,18 @@ export const useBookmarks = () => {
         });
         
         return true;
+      } else {
+        // Bookmark was removed
+        setBookmarks(bookmarks.filter(b => 
+          !(b.content_id === contentId && b.content_type === contentType)
+        ));
+        
+        toast({
+          title: "Bookmark removed",
+          description: `Item removed from your bookmarks.`
+        });
+        
+        return false;
       }
     } catch (error) {
       console.error("Error toggling bookmark:", error);

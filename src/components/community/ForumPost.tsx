@@ -31,6 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
+import { forumService } from "@/services/forumService";
 
 interface ForumPostProps {
   post: Post;
@@ -70,14 +71,8 @@ export const ForumPost: React.FC<ForumPostProps> = ({
     const checkIfLiked = async () => {
       if (user) {
         try {
-          const { data } = await supabase
-            .from('post_likes')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('post_id', post.id)
-            .single() as { data: any, error: any };
-            
-          setLiked(!!data);
+          const isLiked = await forumService.checkPostLike(user.id, post.id);
+          setLiked(isLiked);
         } catch (error) {
           setLiked(false);
         }
@@ -96,29 +91,23 @@ export const ForumPost: React.FC<ForumPostProps> = ({
     if (!commentText.trim()) return;
     
     try {
-      const newComment = {
-        post_id: post.id,
-        user_id: user?.id || "unknown",
-        content: commentText,
-        approved: true
-      };
+      if (!user) {
+        toast({
+          variant: "destructive",
+          title: "Authentication required",
+          description: "Please log in to comment"
+        });
+        return;
+      }
       
-      const { data, error } = await supabase
-        .from('post_comments')
-        .insert(newComment)
-        .select(`
-          *,
-          user:users(id, email, name, full_name, avatar_url)
-        `) as { data: any[], error: any };
-        
-      if (error) throw error;
+      const newComment = await forumService.addComment(post.id, user.id, commentText);
       
-      if (data && data.length > 0) {
+      if (newComment) {
         if (!post.comments) {
           post.comments = [];
         }
         
-        post.comments.push(data[0]);
+        post.comments.push(newComment);
         setCommentText("");
         toast({
           title: "Comment submitted",
@@ -159,43 +148,30 @@ export const ForumPost: React.FC<ForumPostProps> = ({
       }
     } else {
       try {
-        const { data: existingLike, error: checkError } = await supabase
-          .from('post_likes')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('post_id', post.id) as { data: any[], error: any };
+        let success;
         
-        if (checkError) throw checkError;
-        
-        if (existingLike && existingLike.length > 0) {
-          const { error: deleteError } = await supabase
-            .from('post_likes')
-            .delete()
-            .eq('id', existingLike[0].id) as { error: any };
-          
-          if (deleteError) throw deleteError;
-          
-          setLiked(false);
-          setLikeCount(prev => Math.max(0, prev - 1));
-          
-          toast({
-            title: "Like removed",
-            description: "You have removed your like from this post"
-          });
+        if (liked) {
+          // Remove like
+          success = await forumService.removePostLike(user.id, post.id);
+          if (success) {
+            setLiked(false);
+            setLikeCount(prev => Math.max(0, prev - 1));
+            toast({
+              title: "Like removed",
+              description: "You have removed your like from this post"
+            });
+          }
         } else {
-          const { error: insertError } = await supabase
-            .from('post_likes')
-            .insert({ user_id: user.id, post_id: post.id }) as { error: any };
-          
-          if (insertError) throw insertError;
-          
-          setLiked(true);
-          setLikeCount(prev => prev + 1);
-          
-          toast({
-            title: "Post liked",
-            description: "You have liked this post"
-          });
+          // Add like
+          success = await forumService.addPostLike(user.id, post.id);
+          if (success) {
+            setLiked(true);
+            setLikeCount(prev => prev + 1);
+            toast({
+              title: "Post liked",
+              description: "You have liked this post"
+            });
+          }
         }
       } catch (error) {
         console.error("Error toggling like:", error);
@@ -233,49 +209,23 @@ export const ForumPost: React.FC<ForumPostProps> = ({
       }
     } else {
       try {
-        const { data: existingBookmark, error: checkError } = await supabase
-          .from('bookmarks')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('content_id', post.id)
-          .eq('content_type', 'post') as { data: any[], error: any };
+        const result = await forumService.toggleBookmark(
+          user.id,
+          post.id,
+          'post',
+          post.title,
+          post.content,
+          post.media && post.media.length > 0 ? post.media[0].url : undefined
+        );
         
-        if (checkError) throw checkError;
+        setBookmarked(result);
         
-        if (existingBookmark && existingBookmark.length > 0) {
-          const { error: deleteError } = await supabase
-            .from('bookmarks')
-            .delete()
-            .eq('id', existingBookmark[0].id) as { error: any };
-          
-          if (deleteError) throw deleteError;
-          
-          setBookmarked(false);
-          
-          toast({
-            title: "Bookmark removed",
-            description: "This post has been removed from your bookmarks"
-          });
-        } else {
-          const { error: insertError } = await supabase
-            .from('bookmarks')
-            .insert({
-              user_id: user.id,
-              content_id: post.id,
-              content_type: 'post',
-              title: post.title,
-              description: post.content
-            }) as { error: any };
-          
-          if (insertError) throw insertError;
-          
-          setBookmarked(true);
-          
-          toast({
-            title: "Post bookmarked",
-            description: "This post has been added to your bookmarks"
-          });
-        }
+        toast({
+          title: result ? "Post bookmarked" : "Bookmark removed",
+          description: result 
+            ? "This post has been added to your bookmarks" 
+            : "This post has been removed from your bookmarks"
+        });
       } catch (error) {
         console.error("Error toggling bookmark:", error);
         toast({

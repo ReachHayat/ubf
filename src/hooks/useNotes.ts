@@ -30,12 +30,7 @@ export const useNotes = () => {
     try {
       setLoading(true);
       
-      // Using generic query to avoid TypeScript errors
-      const { data, error } = await supabase
-        .from('notes')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false }) as { data: Note[] | null, error: any };
+      const { data, error } = await supabase.rpc('get_user_notes') as any;
         
       if (error) throw error;
       
@@ -63,52 +58,35 @@ export const useNotes = () => {
     }
     
     try {
-      // Check if note already exists
-      const existingNote = notes.find(n => n.lesson_id === lessonId && n.course_id === courseId);
+      const { data, error } = await supabase.rpc('update_note', {
+        lesson_id_param: lessonId,
+        course_id_param: courseId,
+        content_param: content,
+        user_id_param: user.id
+      }) as any;
       
-      if (existingNote) {
-        // Update existing note - using generic query
-        const { data, error } = await supabase
-          .from('notes')
-          .update({ 
-            content,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingNote.id)
-          .select() as { data: Note[] | null, error: any };
-          
-        if (error) throw error;
+      if (error) throw error;
+      
+      if (data) {
+        const existingNoteIndex = notes.findIndex(
+          n => n.lesson_id === lessonId && n.course_id === courseId
+        );
         
-        if (data && data.length > 0) {
-          setNotes(notes.map(n => n.id === existingNote.id ? data[0] as Note : n));
-          return data[0] as Note;
+        if (existingNoteIndex >= 0) {
+          // Update existing note
+          setNotes(notes.map((n, i) => i === existingNoteIndex ? data : n));
+        } else {
+          // Add new note
+          setNotes([...notes, data]);
         }
-      } else {
-        // Create new note - using generic query
-        const newNote = {
-          user_id: user.id,
-          lesson_id: lessonId,
-          course_id: courseId,
-          content
-        };
         
-        const { data, error } = await supabase
-          .from('notes')
-          .insert(newNote)
-          .select() as { data: Note[] | null, error: any };
-          
-        if (error) throw error;
+        toast({
+          title: "Note saved",
+          description: "Your notes have been saved."
+        });
         
-        if (data && data.length > 0) {
-          setNotes([...notes, data[0] as Note]);
-          return data[0] as Note;
-        }
+        return data;
       }
-      
-      toast({
-        title: "Note saved",
-        description: "Your notes have been saved."
-      });
       
       return null;
     } catch (error) {
@@ -130,11 +108,10 @@ export const useNotes = () => {
     if (!user) return false;
     
     try {
-      // Using generic query
-      const { error } = await supabase
-        .from('notes')
-        .delete()
-        .eq('id', noteId) as { error: any };
+      const { error } = await supabase.rpc('delete_note', {
+        note_id_param: noteId,
+        user_id_param: user.id
+      }) as any;
         
       if (error) throw error;
       
