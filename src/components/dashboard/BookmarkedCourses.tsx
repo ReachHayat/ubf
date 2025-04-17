@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bookmark, PlayCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { getCourseById } from "@/components/courses/CourseService";
-import { supabase } from "@/integrations/supabase/client";
+import { bookmarkService, Bookmark as BookmarkType } from "@/services/bookmarkService";
 
 interface BookmarkedLesson {
   id: string;
@@ -28,34 +27,23 @@ const BookmarkedCourses = () => {
       try {
         setLoading(true);
         
-        // Fetch from Supabase - using generic query to avoid TypeScript errors
-        const { data, error } = await supabase
-          .from('bookmarks')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('content_type', 'lesson')
-          .order('created_at', { ascending: false })
-          .limit(5) as { data: any[] | null, error: any };
-          
-        if (error) throw error;
+        const bookmarks = await bookmarkService.getUserBookmarks();
+        const lessonBookmarks = bookmarks.filter(b => b.content_type === 'lesson');
         
         const fetchedBookmarks: BookmarkedLesson[] = [];
         
-        if (data) {
-          for (const bookmark of data) {
-            // Find course name for context
-            const courseId = bookmark.description?.replace('Course: ', '') || '';
-            const course = getCourseById(courseId.trim());
-            
-            fetchedBookmarks.push({
-              id: bookmark.content_id,
-              title: bookmark.title,
-              courseId: courseId,
-              courseName: course?.title || 'Unknown Course',
-              thumbnail: bookmark.thumbnail,
-              lastViewed: bookmark.created_at
-            });
-          }
+        for (const bookmark of lessonBookmarks) {
+          const courseId = bookmark.description?.replace('Course: ', '') || '';
+          const course = getCourseById(courseId.trim());
+          
+          fetchedBookmarks.push({
+            id: bookmark.content_id,
+            title: bookmark.title,
+            courseId: courseId,
+            courseName: course?.title || 'Unknown Course',
+            thumbnail: bookmark.thumbnail,
+            lastViewed: bookmark.created_at
+          });
         }
         
         setBookmarkedLessons(fetchedBookmarks);

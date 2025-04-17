@@ -1,18 +1,8 @@
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-
-export interface Bookmark {
-  id: string;
-  content_id: string;
-  content_type: 'post' | 'course' | 'lesson' | 'quiz' | 'assignment';
-  title: string;
-  description?: string;
-  thumbnail?: string;
-  created_at: string;
-}
+import { bookmarkService, Bookmark } from "@/services/bookmarkService";
 
 export const useBookmarks = () => {
   const { user } = useAuth();
@@ -31,11 +21,8 @@ export const useBookmarks = () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase.rpc('get_user_bookmarks') as any;
-        
-      if (error) throw error;
-      
-      setBookmarks(data || []);
+      const data = await bookmarkService.getUserBookmarks();
+      setBookmarks(data);
     } catch (error) {
       console.error("Error fetching bookmarks:", error);
       toast({
@@ -65,24 +52,17 @@ export const useBookmarks = () => {
     }
     
     try {
-      const { data, error } = await supabase.rpc('toggle_bookmark', {
-        user_id_param: user.id,
-        content_id_param: contentId,
-        content_type_param: contentType,
-        title_param: title,
-        description_param: description || '',
-        thumbnail_param: thumbnail || ''
-      }) as any;
+      const isBookmarked = await bookmarkService.toggleBookmark(
+        contentId,
+        contentType,
+        title,
+        description,
+        thumbnail
+      );
       
-      if (error) throw error;
-      
-      if (data === true) {
+      if (isBookmarked) {
         // Bookmark was added - fetch the new bookmark to add to state
-        const { data: newBookmark } = await supabase.rpc('get_bookmark', {
-          user_id_param: user.id,
-          content_id_param: contentId,
-          content_type_param: contentType
-        }) as any;
+        const newBookmark = await bookmarkService.getBookmark(contentId, contentType);
         
         if (newBookmark) {
           setBookmarks([...bookmarks, newBookmark]);

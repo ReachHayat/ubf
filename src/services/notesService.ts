@@ -1,7 +1,16 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { Note } from "@/hooks/useNotes";
 import { toast } from "@/components/ui/use-toast";
+
+export interface Note {
+  id: string;
+  user_id: string;
+  lesson_id: string;
+  course_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
 
 // Generic types for our RPC responses
 interface RPCResponse<T> {
@@ -12,7 +21,7 @@ interface RPCResponse<T> {
 export const notesService = {
   getUserNotes: async (): Promise<Note[]> => {
     try {
-      const response = await supabase.rpc('get_user_notes') as unknown as RPCResponse<Note[]>;
+      const response = await supabase.functions.invoke('get_user_notes') as RPCResponse<Note[]>;
       
       if (response.error) throw response.error;
       
@@ -29,11 +38,13 @@ export const notesService = {
     content: string
   ): Promise<Note | null> => {
     try {
-      const response = await supabase.rpc('update_note', {
-        lesson_id_param: lessonId,
-        course_id_param: courseId,
-        content_param: content
-      }) as unknown as RPCResponse<Note>;
+      const response = await supabase.functions.invoke('update_note', {
+        body: {
+          lesson_id_param: lessonId,
+          course_id_param: courseId,
+          content_param: content
+        }
+      }) as RPCResponse<Note>;
       
       if (response.error) throw response.error;
       
@@ -46,10 +57,12 @@ export const notesService = {
 
   getNote: async (lessonId: string, courseId: string): Promise<Note | null> => {
     try {
-      const response = await supabase.rpc('get_lesson_note', {
-        lesson_id_param: lessonId,
-        course_id_param: courseId
-      }) as unknown as RPCResponse<Note>;
+      const response = await supabase.functions.invoke('get_lesson_note', {
+        body: {
+          lesson_id_param: lessonId,
+          course_id_param: courseId
+        }
+      }) as RPCResponse<Note>;
       
       if (response.error) throw response.error;
       
@@ -62,9 +75,11 @@ export const notesService = {
 
   deleteNote: async (noteId: string): Promise<boolean> => {
     try {
-      const response = await supabase.rpc('delete_note', {
-        note_id_param: noteId
-      }) as unknown as RPCResponse<boolean>;
+      const response = await supabase.functions.invoke('delete_note', {
+        body: {
+          note_id_param: noteId
+        }
+      }) as RPCResponse<boolean>;
       
       if (response.error) throw response.error;
       

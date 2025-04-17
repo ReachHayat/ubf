@@ -1,23 +1,10 @@
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { reviewService, CourseReview } from "@/services/reviewService";
 
-export interface CourseReview {
-  id: string;
-  course_id: string;
-  rating: number;
-  comment?: string;
-  created_at: string;
-  updated_at: string;
-  user_id: string;
-  user?: {
-    name?: string;
-    full_name?: string;
-    avatar_url?: string;
-  };
-}
+export { CourseReview } from "@/services/reviewService";
 
 export const useReviews = (courseId?: string) => {
   const { user } = useAuth();
@@ -35,23 +22,18 @@ export const useReviews = (courseId?: string) => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
-        .from('course_reviews')
-        .select(`
-          *,
-          user:users(name, full_name, avatar_url)
-        `)
-        .eq('course_id', courseIdToFetch)
-        .order('created_at', { ascending: false });
-        
-      if (error) throw error;
-      
-      setReviews(data || []);
+      const courseReviews = await reviewService.getCourseReviews(courseIdToFetch);
+      setReviews(courseReviews);
       
       // Set user's own review if exists
       if (user) {
-        const ownReview = data?.find(review => review.user_id === user.id);
-        setUserReview(ownReview || null);
+        const ownReview = courseReviews.find(review => review.user_id === user.id);
+        if (ownReview) {
+          setUserReview(ownReview);
+        } else {
+          const userReview = await reviewService.getUserReview(user.id, courseIdToFetch);
+          setUserReview(userReview);
+        }
       }
     } catch (error) {
       console.error("Error fetching reviews:", error);
@@ -76,61 +58,33 @@ export const useReviews = (courseId?: string) => {
     }
     
     try {
-      if (userReview) {
-        // Update existing review
-        const { data, error } = await supabase
-          .from('course_reviews')
-          .update({ 
-            rating,
-            comment,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', userReview.id)
-          .select();
-          
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          setUserReview(data[0] as CourseReview);
-          setReviews(reviews.map(r => r.id === userReview.id ? data[0] as CourseReview : r));
+      const updatedReview = await reviewService.submitReview(
+        courseIdToReview,
+        rating,
+        comment,
+        userReview?.id
+      );
+      
+      if (updatedReview) {
+        if (userReview) {
+          // Update existing review in state
+          setReviews(reviews.map(r => r.id === userReview.id ? updatedReview : r));
+        } else {
+          // Add new review to state
+          setReviews([updatedReview, ...reviews]);
         }
-      } else {
-        // Create new review
-        const newReview = {
-          user_id: user.id,
-          course_id: courseIdToReview,
-          rating,
-          comment
-        };
         
-        const { data, error } = await supabase
-          .from('course_reviews')
-          .insert(newReview)
-          .select();
-          
-        if (error) throw error;
+        setUserReview(updatedReview);
         
-        if (data && data.length > 0) {
-          const reviewWithUser = {
-            ...data[0],
-            user: {
-              name: user.user_metadata?.name,
-              full_name: user.user_metadata?.full_name,
-              avatar_url: user.user_metadata?.avatar_url
-            }
-          } as CourseReview;
-          
-          setUserReview(reviewWithUser);
-          setReviews([reviewWithUser, ...reviews]);
-        }
+        toast({
+          title: "Review submitted",
+          description: "Thank you for your feedback!"
+        });
+        
+        return true;
       }
       
-      toast({
-        title: "Review submitted",
-        description: "Thank you for your feedback!"
-      });
-      
-      return true;
+      return false;
     } catch (error) {
       console.error("Error submitting review:", error);
       toast({
@@ -146,25 +100,22 @@ export const useReviews = (courseId?: string) => {
     if (!user) return false;
     
     try {
-      const { error } = await supabase
-        .from('course_reviews')
-        .delete()
-        .eq('id', reviewId);
+      const success = await reviewService.deleteReview(reviewId);
+      
+      if (success) {
+        setReviews(reviews.filter(r => r.id !== reviewId));
         
-      if (error) throw error;
-      
-      setReviews(reviews.filter(r => r.id !== reviewId));
-      
-      if (userReview && userReview.id === reviewId) {
-        setUserReview(null);
+        if (userReview && userReview.id === reviewId) {
+          setUserReview(null);
+        }
+        
+        toast({
+          title: "Review deleted",
+          description: "Your review has been removed."
+        });
       }
       
-      toast({
-        title: "Review deleted",
-        description: "Your review has been removed."
-      });
-      
-      return true;
+      return success;
     } catch (error) {
       console.error("Error deleting review:", error);
       toast({

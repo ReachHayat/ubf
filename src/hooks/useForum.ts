@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
@@ -73,10 +72,7 @@ export const useForum = () => {
     try {
       setLoading(true);
       
-      const { data: postsData, error: postsError } = await supabase.rpc('get_forum_posts') as any;
-      
-      if (postsError) throw postsError;
-      
+      const postsData = await forumService.getForumPosts();
       setPosts(postsData || []);
     } catch (error) {
       console.error("Error fetching posts:", error);
@@ -101,14 +97,7 @@ export const useForum = () => {
     }
     
     try {
-      const { data, error } = await supabase.rpc('create_forum_post', {
-        title_param: title,
-        content_param: content,
-        category_id_param: categoryId,
-        media_param: media || []
-      }) as any;
-      
-      if (error) throw error;
+      const data = await forumService.createForumPost(title, content, categoryId, media);
       
       if (data) {
         setPosts([data, ...posts]);
@@ -135,22 +124,20 @@ export const useForum = () => {
 
   const approvePost = async (postId: string) => {
     try {
-      const { data, error } = await supabase.rpc('approve_forum_post', {
-        post_id_param: postId
-      }) as any;
+      const success = await forumService.approveForumPost(postId);
       
-      if (error) throw error;
-      
-      setPosts(posts.map(post => 
-        post.id === postId 
-          ? { ...post, approved: true } 
-          : post
-      ));
-      
-      toast({
-        title: "Post approved",
-        description: "The post is now visible to all users."
-      });
+      if (success) {
+        setPosts(posts.map(post => 
+          post.id === postId 
+            ? { ...post, approved: true } 
+            : post
+        ));
+        
+        toast({
+          title: "Post approved",
+          description: "The post is now visible to all users."
+        });
+      }
     } catch (error) {
       console.error("Error approving post:", error);
       toast({
@@ -163,18 +150,16 @@ export const useForum = () => {
 
   const deletePost = async (postId: string) => {
     try {
-      const { error } = await supabase.rpc('delete_forum_post', {
-        post_id_param: postId
-      }) as any;
+      const success = await forumService.deleteForumPost(postId);
       
-      if (error) throw error;
-      
-      setPosts(posts.filter(post => post.id !== postId));
-      
-      toast({
-        title: "Post deleted",
-        description: "The post has been removed."
-      });
+      if (success) {
+        setPosts(posts.filter(post => post.id !== postId));
+        
+        toast({
+          title: "Post deleted",
+          description: "The post has been removed."
+        });
+      }
     } catch (error) {
       console.error("Error deleting post:", error);
       toast({
@@ -196,36 +181,31 @@ export const useForum = () => {
     }
     
     try {
-      // Check if user has already liked this post
       const isLiked = await forumService.checkPostLike(user.id, postId);
       
       if (isLiked) {
-        // Remove like
         const success = await forumService.removePostLike(user.id, postId);
         
         if (success) {
-          // Update like count in local state
           setPosts(posts.map(post => 
             post.id === postId 
               ? { ...post, likes: Math.max(0, post.likes - 1) } 
               : post
           ));
           
-          return false; // Not liked anymore
+          return false;
         }
       } else {
-        // Add like
         const success = await forumService.addPostLike(user.id, postId);
         
         if (success) {
-          // Update like count in local state
           setPosts(posts.map(post => 
             post.id === postId 
               ? { ...post, likes: post.likes + 1 } 
               : post
           ));
           
-          return true; // Liked
+          return true;
         }
       }
       
@@ -260,7 +240,6 @@ export const useForum = () => {
       const newComment = await forumService.addComment(postId, user.id, content);
       
       if (newComment) {
-        // Update local state with the new comment
         setPosts(posts.map(post => {
           if (post.id === postId) {
             return {

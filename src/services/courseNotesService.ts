@@ -1,16 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-
-// Define types for notes
-export interface CourseNote {
-  id: string;
-  user_id: string;
-  lesson_id: string;
-  course_id: string;
-  content: string;
-  created_at: string;
-  updated_at: string;
-}
+import { Note } from "./notesService";
 
 export interface NoteResult {
   lessonId: string;
@@ -27,10 +17,12 @@ export const courseNotesService = {
         return;
       }
       
-      await supabase.rpc('update_note', {
-        lesson_id_param: lessonId,
-        course_id_param: courseId,
-        content_param: noteContent
+      await supabase.functions.invoke('update_note', {
+        body: {
+          lesson_id_param: lessonId,
+          course_id_param: courseId,
+          content_param: noteContent
+        }
       });
       
       // Also update localStorage for offline access
@@ -54,12 +46,14 @@ export const courseNotesService = {
         return "";
       }
       
-      const { data, error } = await supabase.rpc('get_lesson_note', {
-        lesson_id_param: lessonId,
-        course_id_param: courseId
+      const { data, error } = await supabase.functions.invoke('get_lesson_note', {
+        body: {
+          lesson_id_param: lessonId,
+          course_id_param: courseId
+        }
       }) as any;
       
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
+      if (error) {
         throw error;
       }
       
@@ -84,12 +78,12 @@ export const courseNotesService = {
         return [];
       }
       
-      const { data, error } = await supabase.rpc('get_user_notes') as any;
+      const { data, error } = await supabase.functions.invoke('get_user_notes') as any;
       
       if (error) throw error;
       
       if (data && data.length > 0) {
-        return data.map((note: any) => ({
+        return data.map((note: Note) => ({
           lessonId: note.lesson_id,
           courseId: note.course_id,
           content: note.content,

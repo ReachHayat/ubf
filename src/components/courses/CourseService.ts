@@ -590,6 +590,7 @@ if (!localStorage.getItem(ENROLLED_COURSES_KEY)) {
 
 // We're now using the courseNotesService for notes functionality
 import { courseNotesService } from "@/services/courseNotesService";
+import { bookmarkService } from "@/services/bookmarkService";
 
 // Update user's notes for a specific lesson
 export const updateUserNotes = async (userId: string, lessonId: string, courseId: string, noteContent: string): Promise<void> => {
@@ -613,17 +614,7 @@ export const isCourseSaved = async (userId: string, courseId: string): Promise<b
       return false;
     }
     
-    const { data, error } = await supabase.rpc('check_bookmark', { 
-      user_id_param: userId,
-      content_id_param: courseId,
-      content_type_param: 'course'
-    }) as any;
-    
-    if (error && error.code !== 'PGRST116') {
-      throw error;
-    }
-    
-    return !!data;
+    return bookmarkService.checkBookmark(courseId, 'course');
   } catch (error) {
     console.error("Error checking if course is bookmarked:", error);
     return false;
@@ -637,19 +628,13 @@ export const toggleCourseSaved = async (userId: string, course: Course): Promise
       return false;
     }
     
-    // Use RPC function instead of direct table access
-    const { data, error } = await supabase.rpc('toggle_bookmark', {
-      user_id_param: userId,
-      content_id_param: course.id,
-      content_type_param: 'course',
-      title_param: course.title,
-      description_param: course.description || '',
-      thumbnail_param: course.thumbnail || ''
-    }) as any;
-    
-    if (error) throw error;
-    
-    return data === true;
+    return bookmarkService.toggleBookmark(
+      course.id,
+      'course',
+      course.title,
+      course.description || '',
+      course.thumbnail || ''
+    );
   } catch (error) {
     console.error("Error toggling course bookmark:", error);
     return false;
@@ -669,19 +654,16 @@ export const toggleLessonSaved = async (
       return false;
     }
     
-    // Use RPC function instead of direct table access
-    const { data, error } = await supabase.rpc('toggle_bookmark', {
-      user_id_param: userId,
-      content_id_param: lessonId,
-      content_type_param: 'lesson',
-      title_param: title,
-      description_param: `Course: ${getCourseById(courseId)?.title || courseId}`,
-      thumbnail_param: thumbnail || ''
-    }) as any;
+    const course = getCourseById(courseId);
+    const description = `Course: ${course?.title || courseId}`;
     
-    if (error) throw error;
-    
-    return data === true;
+    return bookmarkService.toggleBookmark(
+      lessonId,
+      'lesson',
+      title,
+      description,
+      thumbnail || ''
+    );
   } catch (error) {
     console.error("Error toggling lesson bookmark:", error);
     return false;
@@ -695,17 +677,7 @@ export const isLessonSaved = async (userId: string, lessonId: string): Promise<b
       return false;
     }
     
-    const { data, error } = await supabase.rpc('check_bookmark', {
-      user_id_param: userId,
-      content_id_param: lessonId,
-      content_type_param: 'lesson'
-    }) as any;
-    
-    if (error && error.code !== 'PGRST116') {
-      throw error;
-    }
-    
-    return !!data;
+    return bookmarkService.checkBookmark(lessonId, 'lesson');
   } catch (error) {
     console.error("Error checking if lesson is bookmarked:", error);
     return false;
