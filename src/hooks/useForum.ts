@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBookmarks } from "./useBookmarks";
 
 export interface Category {
   id: string;
@@ -21,6 +22,8 @@ export interface Comment {
     id: string;
     email: string;
     full_name?: string;
+    name?: string;
+    avatar_url?: string;
   };
   likes?: number;
 }
@@ -39,177 +42,88 @@ export interface Post {
     id: string;
     email: string;
     full_name?: string;
+    name?: string;
+    avatar_url?: string;
   };
   category?: Category;
   media?: {type: string, url: string}[];
 }
 
 export const useForum = () => {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
-  const [bookmarkedPosts, setBookmarkedPosts] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>([
     { id: "general", name: "General Discussion" },
     { id: "questions", name: "Questions & Answers" },
     { id: "resources", name: "Resources & Materials" }
   ]);
   const [loading, setLoading] = useState(false);
+  const { bookmarks: bookmarkedItems, toggleBookmark, isBookmarked } = useBookmarks();
+  
+  const bookmarkedPosts = bookmarkedItems
+    .filter(b => b.content_type === 'post')
+    .map(b => b.content_id);
 
   useEffect(() => {
     fetchPosts();
-    fetchBookmarks();
   }, [user]);
 
   const fetchPosts = async () => {
     try {
       setLoading(true);
       
-      // Here we would normally fetch from a Supabase table
-      // Since we're mocking, we'll create some sample data
-      const mockPosts: Post[] = [
-        {
-          id: "1",
-          title: "Welcome to the Community Forum!",
-          content: "This is the official community forum for our platform. Feel free to ask questions, share resources, and connect with other learners.",
-          user_id: "admin-123",
-          category_id: "general",
-          approved: true,
-          created_at: new Date().toISOString(),
-          likes: 15,
-          user: {
-            id: "admin-123",
-            email: "admin@example.com",
-            full_name: "Admin User"
-          },
-          category: { id: "general", name: "General Discussion" },
-          comments: [
-            {
-              id: "c1",
-              post_id: "1",
-              user_id: "user-456",
-              content: "Great to be here! Looking forward to engaging with everyone.",
-              approved: true,
-              created_at: new Date().toISOString(),
-              user: {
-                id: "user-456",
-                email: "user@example.com",
-                full_name: "Regular User"
-              },
-              likes: 2
-            }
-          ],
-          media: [
-            {
-              type: "image",
-              url: "https://images.unsplash.com/photo-1531482615713-2afd69097998?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
-            }
-          ]
-        },
-        {
-          id: "2",
-          title: "How do I get started with React?",
-          content: "I'm new to React and looking for some beginner-friendly resources. Any recommendations?",
-          user_id: "user-456",
-          category_id: "questions",
-          approved: true,
-          created_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          likes: 8,
-          user: {
-            id: "user-456",
-            email: "user@example.com",
-            full_name: "Regular User"
-          },
-          category: { id: "questions", name: "Questions & Answers" },
-          comments: []
-        },
-        {
-          id: "3",
-          title: "Free UX Design Resources",
-          content: "I've compiled a list of free UX design resources that I've found helpful. Check them out!",
-          user_id: "user-789",
-          category_id: "resources",
-          approved: false,
-          created_at: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-          likes: 0,
-          user: {
-            id: "user-789",
-            email: "designer@example.com",
-            full_name: "Design Enthusiast"
-          },
-          category: { id: "resources", name: "Resources & Materials" },
-          comments: [],
-          media: [
-            {
-              type: "image",
-              url: "https://images.unsplash.com/photo-1586717799252-bd134ad00e26?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
-            }
-          ]
-        }
-      ];
+      // In a real implementation, we'd fetch from Supabase
+      const { data: postsData, error: postsError } = await supabase
+        .from('community_posts')
+        .select(`
+          *,
+          user:users(id, email, name, full_name, avatar_url)
+        `)
+        .order('created_at', { ascending: false });
       
-      setPosts(mockPosts);
+      if (postsError) throw postsError;
+      
+      // Fetch comments for each post
+      let processedPosts: Post[] = [];
+      
+      for (const post of (postsData || [])) {
+        const { data: commentsData, error: commentsError } = await supabase
+          .from('post_comments')
+          .select(`
+            *,
+            user:users(id, email, name, full_name, avatar_url)
+          `)
+          .eq('post_id', post.id)
+          .order('created_at', { ascending: true });
+          
+        if (commentsError) throw commentsError;
+        
+        // Get like count for this post
+        const { count: likesCount, error: likesError } = await supabase
+          .from('post_likes')
+          .select('*', { count: 'exact', head: true })
+          .eq('post_id', post.id);
+          
+        if (likesError) throw likesError;
+        
+        processedPosts.push({
+          ...post,
+          comments: commentsData || [],
+          likes: likesCount || 0
+        });
+      }
+      
+      setPosts(processedPosts);
     } catch (error) {
       console.error("Error fetching posts:", error);
       toast({
         variant: "destructive",
         title: "Failed to load posts",
-        description: "Please try again or contact support if the issue persists."
+        description: "Please try again or contact support if the problem persists."
       });
     } finally {
       setLoading(false);
     }
-  };
-
-  const fetchBookmarks = async () => {
-    if (!user) return;
-    
-    try {
-      // In a real implementation, we would fetch from Supabase
-      // For now, just retrieve from localStorage
-      const bookmarks = JSON.parse(localStorage.getItem(`forum-bookmarks-${user.id}`) || "[]");
-      setBookmarkedPosts(bookmarks);
-    } catch (error) {
-      console.error("Error fetching bookmarks:", error);
-    }
-  };
-
-  const toggleBookmark = async (postId: string) => {
-    if (!user) return;
-    
-    try {
-      const bookmarksKey = `forum-bookmarks-${user.id}`;
-      let bookmarks = JSON.parse(localStorage.getItem(bookmarksKey) || "[]");
-      
-      if (bookmarks.includes(postId)) {
-        // Remove bookmark
-        bookmarks = bookmarks.filter((id: string) => id !== postId);
-        toast({
-          title: "Bookmark removed",
-          description: "The post has been removed from your bookmarks."
-        });
-      } else {
-        // Add bookmark
-        bookmarks.push(postId);
-        toast({
-          title: "Post bookmarked",
-          description: "The post has been added to your bookmarks."
-        });
-      }
-      
-      localStorage.setItem(bookmarksKey, JSON.stringify(bookmarks));
-      setBookmarkedPosts(bookmarks);
-    } catch (error) {
-      console.error("Error toggling bookmark:", error);
-      toast({
-        variant: "destructive",
-        title: "Failed to update bookmark",
-        description: "Please try again later."
-      });
-    }
-  };
-
-  const isBookmarked = (postId: string) => {
-    return bookmarkedPosts.includes(postId);
   };
 
   const createPost = async (title: string, content: string, categoryId: string, media?: any[]) => {
@@ -223,40 +137,44 @@ export const useForum = () => {
     }
     
     try {
-      // In a real implementation, we would insert to Supabase here
-      const newPost: Post = {
-        id: `new-${Date.now()}`, // This would be auto-generated by the DB
+      // Insert the new post to Supabase
+      const newPost = {
         title,
         content,
         user_id: user.id,
         category_id: categoryId,
-        approved: isAdmin() ? true : false, // Auto approve if admin
-        created_at: new Date().toISOString(),
-        likes: 0,
-        comments: [],
-        user: {
-          id: user.id,
-          email: user.email || "",
-          full_name: user.user_metadata?.full_name || ""
-        },
-        category: categories.find(c => c.id === categoryId),
+        approved: user.user_metadata?.is_admin ? true : false, // Auto approve if admin
         media: media || []
       };
       
-      setPosts([newPost, ...posts]);
+      const { data, error } = await supabase
+        .from('community_posts')
+        .insert(newPost)
+        .select(`
+          *,
+          user:users(id, email, name, full_name, avatar_url)
+        `);
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setPosts([{...data[0], comments: [], likes: 0}, ...posts]);
+      }
       
       toast({
-        title: isAdmin() ? "Post created" : "Post submitted for approval",
-        description: isAdmin() 
+        title: user.user_metadata?.is_admin ? "Post created" : "Post submitted for approval",
+        description: user.user_metadata?.is_admin 
           ? "Your post has been published." 
           : "Your post will be visible after admin approval."
       });
+      
+      return data?.[0];
     } catch (error) {
       console.error("Error creating post:", error);
       toast({
         variant: "destructive",
         title: "Failed to create post",
-        description: "Please try again or contact support if the issue persists."
+        description: "Please try again or contact support if the problem persists."
       });
       throw error;
     }
@@ -264,7 +182,14 @@ export const useForum = () => {
 
   const approvePost = async (postId: string) => {
     try {
-      // In a real implementation, we would update the Supabase record here
+      const { data, error } = await supabase
+        .from('community_posts')
+        .update({ approved: true })
+        .eq('id', postId)
+        .select();
+      
+      if (error) throw error;
+      
       setPosts(posts.map(post => 
         post.id === postId 
           ? { ...post, approved: true } 
@@ -280,14 +205,26 @@ export const useForum = () => {
       toast({
         variant: "destructive",
         title: "Failed to approve post",
-        description: "Please try again or contact support if the issue persists."
+        description: "Please try again or contact support if the problem persists."
       });
     }
   };
 
   const deletePost = async (postId: string) => {
     try {
-      // In a real implementation, we would delete the Supabase record here
+      const { error } = await supabase
+        .from('community_posts')
+        .delete()
+        .eq('id', postId);
+      
+      if (error) throw error;
+      
+      // Delete any likes and comments associated with the post
+      await Promise.all([
+        supabase.from('post_likes').delete().eq('post_id', postId),
+        supabase.from('post_comments').delete().eq('post_id', postId)
+      ]);
+      
       setPosts(posts.filter(post => post.id !== postId));
       
       toast({
@@ -299,44 +236,152 @@ export const useForum = () => {
       toast({
         variant: "destructive",
         title: "Failed to delete post",
-        description: "Please try again or contact support if the issue persists."
+        description: "Please try again or contact support if the problem persists."
       });
     }
   };
 
   const likePost = async (postId: string) => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication required",
+        description: "Please log in to like posts."
+      });
+      return false;
+    }
+    
     try {
-      // In a real implementation, we would update the Supabase record here
-      setPosts(posts.map(post => 
-        post.id === postId 
-          ? { ...post, likes: post.likes + 1 } 
-          : post
-      ));
+      // Check if user has already liked this post
+      const { data: existingLike, error: checkError } = await supabase
+        .from('post_likes')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('post_id', postId);
+      
+      if (checkError) throw checkError;
+      
+      if (existingLike && existingLike.length > 0) {
+        // User already liked this post, remove the like
+        const { error: deleteError } = await supabase
+          .from('post_likes')
+          .delete()
+          .eq('id', existingLike[0].id);
+        
+        if (deleteError) throw deleteError;
+        
+        // Update like count in local state
+        setPosts(posts.map(post => 
+          post.id === postId 
+            ? { ...post, likes: Math.max(0, post.likes - 1) } 
+            : post
+        ));
+        
+        return false; // Not liked anymore
+      } else {
+        // Add new like
+        const { error: insertError } = await supabase
+          .from('post_likes')
+          .insert({ user_id: user.id, post_id: postId });
+        
+        if (insertError) throw insertError;
+        
+        // Update like count in local state
+        setPosts(posts.map(post => 
+          post.id === postId 
+            ? { ...post, likes: post.likes + 1 } 
+            : post
+        ));
+        
+        return true; // Liked
+      }
     } catch (error) {
-      console.error("Error liking post:", error);
+      console.error("Error toggling post like:", error);
       toast({
         variant: "destructive",
         title: "Failed to like post",
-        description: "Please try again or contact support if the issue persists."
+        description: "Please try again or contact support if the problem persists."
       });
+      return null;
     }
   };
 
-  const unlikePost = async (postId: string) => {
+  const isLiked = async (postId: string) => {
+    if (!user) return false;
+    
     try {
-      // In a real implementation, we would update the Supabase record here
-      setPosts(posts.map(post => 
-        post.id === postId 
-          ? { ...post, likes: Math.max(0, post.likes - 1) } 
-          : post
-      ));
+      const { data, error } = await supabase
+        .from('post_likes')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('post_id', postId);
+      
+      if (error) throw error;
+      
+      return data && data.length > 0;
     } catch (error) {
-      console.error("Error unliking post:", error);
+      console.error("Error checking if post is liked:", error);
+      return false;
+    }
+  };
+
+  const addComment = async (postId: string, content: string) => {
+    if (!user) {
       toast({
         variant: "destructive",
-        title: "Failed to unlike post",
-        description: "Please try again or contact support if the issue persists."
+        title: "Authentication required",
+        description: "Please log in to comment on posts."
       });
+      return null;
+    }
+    
+    try {
+      const newComment = {
+        post_id: postId,
+        user_id: user.id,
+        content,
+        approved: true // Comments are auto-approved by default
+      };
+      
+      const { data, error } = await supabase
+        .from('post_comments')
+        .insert(newComment)
+        .select(`
+          *,
+          user:users(id, email, name, full_name, avatar_url)
+        `);
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        // Update local state with the new comment
+        setPosts(posts.map(post => {
+          if (post.id === postId) {
+            return {
+              ...post,
+              comments: [...(post.comments || []), data[0]]
+            };
+          }
+          return post;
+        }));
+        
+        toast({
+          title: "Comment added",
+          description: "Your comment has been posted successfully."
+        });
+        
+        return data[0];
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to add comment",
+        description: "Please try again or contact support if the problem persists."
+      });
+      return null;
     }
   };
 
@@ -354,15 +399,17 @@ export const useForum = () => {
     posts,
     categories,
     loading,
-    bookmarkedPosts,
     createPost,
     approvePost,
     deletePost,
     fetchPosts,
     getInitials,
-    toggleBookmark,
-    isBookmarked,
+    toggleBookmark: (postId: string, title: string, content: string) => 
+      toggleBookmark(postId, 'post', title, content),
+    isBookmarked: (postId: string) => isBookmarked(postId, 'post'),
+    bookmarkedPosts,
     likePost,
-    unlikePost
+    isLiked,
+    addComment
   };
 };

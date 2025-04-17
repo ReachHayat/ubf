@@ -9,6 +9,7 @@ import { PlusCircle, Search, Bookmark } from "lucide-react";
 import { ForumPost } from "@/components/community/ForumPost";
 import { CreatePostDialog } from "@/components/community/CreatePostDialog";
 import { useForum } from "@/hooks/useForum";
+import { useBookmarks } from "@/hooks/useBookmarks";
 
 const Community = () => {
   const { user, isAdmin } = useAuth();
@@ -24,6 +25,8 @@ const Community = () => {
     deletePost,
     getInitials,
     fetchPosts,
+    likePost,
+    isLiked,
     toggleBookmark,
     isBookmarked,
     bookmarkedPosts
@@ -117,6 +120,9 @@ const Community = () => {
                     getInitials={getInitials}
                     onApprove={approvePost}
                     onDelete={deletePost}
+                    onLike={likePost}
+                    onBookmark={toggleBookmark}
+                    isBookmarked={isBookmarked(post.id)}
                   />
                 ))
               ) : (
@@ -150,6 +156,9 @@ const Community = () => {
                         getInitials={getInitials}
                         onApprove={approvePost}
                         onDelete={deletePost}
+                        onLike={likePost}
+                        onBookmark={toggleBookmark}
+                        isBookmarked={isBookmarked(post.id)}
                       />
                     ))
                 ) : (
@@ -181,6 +190,9 @@ const Community = () => {
                     getInitials={getInitials}
                     onApprove={approvePost}
                     onDelete={deletePost}
+                    onLike={likePost}
+                    onBookmark={toggleBookmark}
+                    isBookmarked={true}
                   />
                 ))
               ) : (
@@ -208,6 +220,9 @@ const Community = () => {
                       getInitials={getInitials}
                       onApprove={approvePost}
                       onDelete={deletePost}
+                      onLike={likePost}
+                      onBookmark={toggleBookmark}
+                      isBookmarked={isBookmarked(post.id)}
                       isPending
                     />
                   ))

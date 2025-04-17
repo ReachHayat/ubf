@@ -9,7 +9,8 @@ import TopMentors from "@/components/dashboard/TopMentors";
 import BookmarkedCourses from "@/components/dashboard/BookmarkedCourses";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
-import { getCourses, getEnrolledCourses } from "@/components/courses/CourseService";
+import { getCourses, getEnrolledCourses, getAllUserNotes } from "@/components/courses/CourseService";
+import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -50,33 +51,104 @@ const Dashboard = () => {
     );
     setMentors(uniqueMentors);
 
-    // Fetch latest notes (mock data for now)
-    if (user) {
-      // In a real app, we'd fetch from Supabase
-      // For now, let's generate some mock data
-      const mockNotes = [
-        {
-          id: "note-1",
-          lessonId: "lesson-1",
-          courseId: "1",
-          courseName: "Design Principles",
-          lessonName: "Introduction to Design Thinking",
-          content: "Design thinking is a process for creative problem solving. It emphasizes observation, empathy, finding patterns...",
-          updatedAt: new Date(Date.now() - 86400000).toISOString() // 1 day ago
-        },
-        {
-          id: "note-2",
-          lessonId: "lesson-2",
-          courseId: "1",
-          courseName: "Design Principles",
-          lessonName: "User-Centered Design",
-          content: "User-centered design (UCD) is an iterative design process in which designers focus on the users and their needs...",
-          updatedAt: new Date(Date.now() - 172800000).toISOString() // 2 days ago
-        }
-      ];
+    // Fetch latest notes
+    const fetchNotes = async () => {
+      if (!user) return;
       
-      setLatestNotes(mockNotes);
-    }
+      try {
+        // Fetch from Supabase
+        const { data, error } = await supabase
+          .from('notes')
+          .select('id, lesson_id, course_id, content, updated_at')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(3);
+          
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          const processedNotes = await Promise.all(data.map(async (note) => {
+            // Find course and lesson info
+            const course = getCourses().find((c) => c.id === note.course_id);
+            let lessonName = "Unknown Lesson";
+            
+            if (course && course.sections) {
+              // Find the lesson in the course sections
+              for (const section of course.sections) {
+                const lesson = section.lessons.find(l => l.id === note.lesson_id);
+                if (lesson) {
+                  lessonName = lesson.title;
+                  break;
+                }
+              }
+            }
+            
+            return {
+              id: note.id,
+              lessonId: note.lesson_id,
+              courseId: note.course_id,
+              courseName: course?.title || "Unknown Course",
+              lessonName: lessonName,
+              content: note.content,
+              updatedAt: note.updated_at
+            };
+          }));
+          
+          setLatestNotes(processedNotes);
+        } else {
+          // Fallback to using mock data if no notes in database
+          const mockNotes = [
+            {
+              id: "note-1",
+              lessonId: "lesson-1",
+              courseId: "1",
+              courseName: "Design Principles",
+              lessonName: "Introduction to Design Thinking",
+              content: "Design thinking is a process for creative problem solving. It emphasizes observation, empathy, finding patterns...",
+              updatedAt: new Date(Date.now() - 86400000).toISOString() // 1 day ago
+            },
+            {
+              id: "note-2",
+              lessonId: "lesson-2",
+              courseId: "1",
+              courseName: "Design Principles",
+              lessonName: "User-Centered Design",
+              content: "User-centered design (UCD) is an iterative design process in which designers focus on the users and their needs...",
+              updatedAt: new Date(Date.now() - 172800000).toISOString() // 2 days ago
+            }
+          ];
+          
+          setLatestNotes(mockNotes);
+        }
+      } catch (error) {
+        console.error("Error fetching notes:", error);
+        // Fallback to mock data
+        const mockNotes = [
+          {
+            id: "note-1",
+            lessonId: "lesson-1",
+            courseId: "1",
+            courseName: "Design Principles",
+            lessonName: "Introduction to Design Thinking",
+            content: "Design thinking is a process for creative problem solving. It emphasizes observation, empathy, finding patterns...",
+            updatedAt: new Date(Date.now() - 86400000).toISOString() // 1 day ago
+          },
+          {
+            id: "note-2",
+            lessonId: "lesson-2",
+            courseId: "1",
+            courseName: "Design Principles",
+            lessonName: "User-Centered Design",
+            content: "User-centered design (UCD) is an iterative design process in which designers focus on the users and their needs...",
+            updatedAt: new Date(Date.now() - 172800000).toISOString() // 2 days ago
+          }
+        ];
+        
+        setLatestNotes(mockNotes);
+      }
+    };
+    
+    fetchNotes();
   }, [user]);
 
   return (

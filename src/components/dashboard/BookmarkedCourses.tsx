@@ -5,6 +5,7 @@ import { Bookmark, PlayCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { getCourseById } from "@/components/courses/CourseService";
+import { supabase } from "@/integrations/supabase/client";
 
 interface BookmarkedLesson {
   id: string;
@@ -25,37 +26,37 @@ const BookmarkedCourses = () => {
       if (!user) return;
       
       try {
-        // In a real implementation, fetch from Supabase
-        // For now, use localStorage
-        const bookmarksKey = `bookmarks-${user.id}`;
-        const bookmarkedIds = JSON.parse(localStorage.getItem(bookmarksKey) || "[]");
+        setLoading(true);
+        
+        // Fetch from Supabase
+        const { data, error } = await supabase
+          .from('bookmarks')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('content_type', 'lesson')
+          .order('created_at', { ascending: false })
+          .limit(5);
+          
+        if (error) throw error;
         
         const fetchedBookmarks: BookmarkedLesson[] = [];
         
-        // For each bookmarked lesson ID, find the course and lesson
-        bookmarkedIds.forEach((lessonId: string) => {
-          // Find in which course this lesson exists
-          const courses = [1, 2, 3, 4, 5].map(id => getCourseById(id.toString())).filter(Boolean);
-          
-          for (const course of courses) {
-            if (!course?.sections) continue;
+        if (data) {
+          for (const bookmark of data) {
+            // Find course name for context
+            const courseId = bookmark.description?.replace('Course: ', '') || '';
+            const course = getCourseById(courseId.trim());
             
-            for (const section of course.sections) {
-              for (const lesson of section.lessons) {
-                if (lesson.id === lessonId) {
-                  fetchedBookmarks.push({
-                    id: lesson.id,
-                    title: lesson.title,
-                    courseId: course.id,
-                    courseName: course.title,
-                    thumbnail: lesson.thumbnail || course.thumbnail,
-                    lastViewed: new Date().toISOString() // Mock data
-                  });
-                }
-              }
-            }
+            fetchedBookmarks.push({
+              id: bookmark.content_id,
+              title: bookmark.title,
+              courseId: courseId,
+              courseName: course?.title || 'Unknown Course',
+              thumbnail: bookmark.thumbnail,
+              lastViewed: bookmark.created_at
+            });
           }
-        });
+        }
         
         setBookmarkedLessons(fetchedBookmarks);
       } catch (error) {

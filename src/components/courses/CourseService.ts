@@ -589,10 +589,49 @@ if (!localStorage.getItem(ENROLLED_COURSES_KEY)) {
 }
 
 // Update user's notes for a specific lesson
-export const updateUserNotes = (userId: string, lessonId: string, noteContent: string): void => {
+export const updateUserNotes = async (userId: string, lessonId: string, courseId: string, noteContent: string): Promise<void> => {
   try {
-    // In a real implementation, this would save to Supabase
-    // For now, we'll use localStorage
+    if (!userId) {
+      console.error("User ID is required to update notes");
+      return;
+    }
+    
+    // Check if note already exists
+    const { data: existingNotes, error: fetchError } = await supabase
+      .from('notes')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('lesson_id', lessonId)
+      .eq('course_id', courseId);
+      
+    if (fetchError) throw fetchError;
+    
+    if (existingNotes && existingNotes.length > 0) {
+      // Update existing note
+      const { error: updateError } = await supabase
+        .from('notes')
+        .update({
+          content: noteContent,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingNotes[0].id);
+        
+      if (updateError) throw updateError;
+    } else {
+      // Create new note
+      const { error: insertError } = await supabase
+        .from('notes')
+        .insert({
+          user_id: userId,
+          lesson_id: lessonId,
+          course_id: courseId,
+          content: noteContent
+        });
+        
+      if (insertError) throw insertError;
+    }
+    
+    // Also update localStorage for offline access
     const notesKey = `user-notes-${userId}`;
     const userNotes = JSON.parse(localStorage.getItem(notesKey) || "{}");
     
@@ -604,5 +643,234 @@ export const updateUserNotes = (userId: string, lessonId: string, noteContent: s
     localStorage.setItem(notesKey, JSON.stringify(userNotes));
   } catch (error) {
     console.error("Error updating user notes:", error);
+  }
+};
+
+// Get user notes for a specific lesson
+export const getUserNotes = async (userId: string, lessonId: string, courseId: string): Promise<string> => {
+  try {
+    if (!userId) {
+      return "";
+    }
+    
+    const { data, error } = await supabase
+      .from('notes')
+      .select('content')
+      .eq('user_id', userId)
+      .eq('lesson_id', lessonId)
+      .eq('course_id', courseId)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
+      throw error;
+    }
+    
+    if (data) {
+      return data.content;
+    }
+    
+    // Fallback to localStorage if not found in DB
+    const notesKey = `user-notes-${userId}`;
+    const userNotes = JSON.parse(localStorage.getItem(notesKey) || "{}");
+    return userNotes[lessonId]?.content || "";
+    
+  } catch (error) {
+    console.error("Error getting user notes:", error);
+    return "";
+  }
+};
+
+// Get all user notes
+export const getAllUserNotes = async (userId: string): Promise<{ lessonId: string, courseId: string, content: string, updatedAt: string }[]> => {
+  try {
+    if (!userId) {
+      return [];
+    }
+    
+    const { data, error } = await supabase
+      .from('notes')
+      .select('lesson_id, course_id, content, updated_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    if (data && data.length > 0) {
+      return data.map(note => ({
+        lessonId: note.lesson_id,
+        courseId: note.course_id,
+        content: note.content,
+        updatedAt: note.updated_at
+      }));
+    }
+    
+    // Fallback to localStorage if not found in DB
+    const notesKey = `user-notes-${userId}`;
+    const userNotes = JSON.parse(localStorage.getItem(notesKey) || "{}");
+    
+    return Object.entries(userNotes).map(([lessonId, noteData]: [string, any]) => ({
+      lessonId,
+      courseId: "", // Not available in localStorage version
+      content: noteData.content,
+      updatedAt: noteData.updatedAt
+    }));
+    
+  } catch (error) {
+    console.error("Error getting all user notes:", error);
+    return [];
+  }
+};
+
+// Check if course is bookmarked
+export const isCourseSaved = async (userId: string, courseId: string): Promise<boolean> => {
+  try {
+    if (!userId) {
+      return false;
+    }
+    
+    const { data, error } = await supabase
+      .from('bookmarks')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('content_id', courseId)
+      .eq('content_type', 'course')
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+    
+    return !!data;
+  } catch (error) {
+    console.error("Error checking if course is bookmarked:", error);
+    return false;
+  }
+};
+
+// Toggle course bookmark
+export const toggleCourseSaved = async (userId: string, course: Course): Promise<boolean> => {
+  try {
+    if (!userId) {
+      return false;
+    }
+    
+    // Check if already bookmarked
+    const { data: existingBookmark, error: checkError } = await supabase
+      .from('bookmarks')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('content_id', course.id)
+      .eq('content_type', 'course');
+    
+    if (checkError) throw checkError;
+    
+    if (existingBookmark && existingBookmark.length > 0) {
+      // Remove bookmark
+      const { error: deleteError } = await supabase
+        .from('bookmarks')
+        .delete()
+        .eq('id', existingBookmark[0].id);
+      
+      if (deleteError) throw deleteError;
+      return false; // Not bookmarked anymore
+    } else {
+      // Add bookmark
+      const { error: insertError } = await supabase
+        .from('bookmarks')
+        .insert({
+          user_id: userId,
+          content_id: course.id,
+          content_type: 'course',
+          title: course.title,
+          description: course.description,
+          thumbnail: course.thumbnail
+        });
+      
+      if (insertError) throw insertError;
+      return true; // Bookmarked
+    }
+  } catch (error) {
+    console.error("Error toggling course bookmark:", error);
+    return false;
+  }
+};
+
+// Toggle lesson bookmark
+export const toggleLessonSaved = async (
+  userId: string, 
+  courseId: string, 
+  lessonId: string,
+  title: string,
+  thumbnail?: string
+): Promise<boolean> => {
+  try {
+    if (!userId) {
+      return false;
+    }
+    
+    // Check if already bookmarked
+    const { data: existingBookmark, error: checkError } = await supabase
+      .from('bookmarks')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('content_id', lessonId)
+      .eq('content_type', 'lesson');
+    
+    if (checkError) throw checkError;
+    
+    if (existingBookmark && existingBookmark.length > 0) {
+      // Remove bookmark
+      const { error: deleteError } = await supabase
+        .from('bookmarks')
+        .delete()
+        .eq('id', existingBookmark[0].id);
+      
+      if (deleteError) throw deleteError;
+      return false; // Not bookmarked anymore
+    } else {
+      // Add bookmark
+      const { error: insertError } = await supabase
+        .from('bookmarks')
+        .insert({
+          user_id: userId,
+          content_id: lessonId,
+          content_type: 'lesson',
+          title: title,
+          description: `Course: ${getCourseById(courseId)?.title || courseId}`,
+          thumbnail: thumbnail
+        });
+      
+      if (insertError) throw insertError;
+      return true; // Bookmarked
+    }
+  } catch (error) {
+    console.error("Error toggling lesson bookmark:", error);
+    return false;
+  }
+};
+
+// Check if lesson is bookmarked
+export const isLessonSaved = async (userId: string, lessonId: string): Promise<boolean> => {
+  try {
+    if (!userId) {
+      return false;
+    }
+    
+    const { data, error } = await supabase
+      .from('bookmarks')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('content_id', lessonId)
+      .eq('content_type', 'lesson')
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+    
+    return !!data;
+  } catch (error) {
+    console.error("Error checking if lesson is bookmarked:", error);
+    return false;
   }
 };

@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -31,6 +31,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ForumPostProps {
   post: Post;
@@ -38,6 +39,9 @@ interface ForumPostProps {
   getInitials: (name: string) => string;
   onApprove: (postId: string) => void;
   onDelete: (postId: string) => void;
+  onLike?: (postId: string) => Promise<boolean | null>;
+  onBookmark?: (postId: string, title: string, content: string) => Promise<boolean | null>;
+  isBookmarked?: boolean;
   isPending?: boolean;
 }
 
@@ -47,6 +51,9 @@ export const ForumPost: React.FC<ForumPostProps> = ({
   getInitials,
   onApprove,
   onDelete,
+  onLike,
+  onBookmark,
+  isBookmarked = false,
   isPending = false
 }) => {
   const { user } = useAuth();
@@ -54,63 +61,240 @@ export const ForumPost: React.FC<ForumPostProps> = ({
   const [commentText, setCommentText] = useState("");
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes || 0);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [bookmarked, setBookmarked] = useState(isBookmarked);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [shareSuccess, setShareSuccess] = useState(false);
   
-  const handleComment = () => {
-    if (commentText.trim()) {
-      // Add the comment to the post
-      if (!post.comments) {
-        post.comments = [];
+  // Check if user has liked the post
+  useEffect(() => {
+    const checkIfLiked = async () => {
+      if (user) {
+        try {
+          const { data } = await supabase
+            .from('post_likes')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('post_id', post.id)
+            .single();
+            
+          setLiked(!!data);
+        } catch (error) {
+          // Not liked yet
+          setLiked(false);
+        }
       }
-      
-      post.comments.push({
-        id: `comment-${Date.now()}`,
+    };
+    
+    checkIfLiked();
+  }, [user, post.id]);
+  
+  // Update bookmarked status when isBookmarked prop changes
+  useEffect(() => {
+    setBookmarked(isBookmarked);
+  }, [isBookmarked]);
+  
+  const handleComment = async () => {
+    if (!commentText.trim()) return;
+    
+    try {
+      const newComment = {
         post_id: post.id,
         user_id: user?.id || "unknown",
         content: commentText,
-        approved: true,
-        created_at: new Date().toISOString(),
-        user: {
-          id: user?.id || "unknown",
-          email: user?.email || "unknown",
-          full_name: user?.user_metadata?.full_name || "User"
+        approved: true
+      };
+      
+      const { data, error } = await supabase
+        .from('post_comments')
+        .insert(newComment)
+        .select(`
+          *,
+          user:users(id, email, name, full_name, avatar_url)
+        `);
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        // Add the comment to the post
+        if (!post.comments) {
+          post.comments = [];
         }
-      });
+        
+        post.comments.push(data[0]);
+      }
       
       setCommentText("");
       toast({
         title: "Comment submitted",
         description: "Your comment has been added to the post."
       });
+    } catch (error) {
+      console.error("Error submitting comment:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to add comment",
+        description: "Please try again or contact support if the problem persists."
+      });
     }
   };
   
-  const toggleLike = () => {
-    if (liked) {
-      setLikeCount(likeCount - 1);
+  const toggleLike = async () => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication required",
+        description: "Please log in to like posts"
+      });
+      return;
+    }
+    
+    if (onLike) {
+      const result = await onLike(post.id);
+      
+      if (result !== null) {
+        setLiked(result);
+        setLikeCount(prev => result ? prev + 1 : prev - 1);
+        
+        toast({
+          title: result ? "Post liked" : "Like removed",
+          description: result ? "You have liked this post" : "You have removed your like from this post"
+        });
+      }
     } else {
-      setLikeCount(likeCount + 1);
+      try {
+        // Check if user has already liked this post
+        const { data: existingLike, error: checkError } = await supabase
+          .from('post_likes')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('post_id', post.id);
+        
+        if (checkError) throw checkError;
+        
+        if (existingLike && existingLike.length > 0) {
+          // User already liked this post, remove the like
+          const { error: deleteError } = await supabase
+            .from('post_likes')
+            .delete()
+            .eq('id', existingLike[0].id);
+          
+          if (deleteError) throw deleteError;
+          
+          setLiked(false);
+          setLikeCount(prev => Math.max(0, prev - 1));
+          
+          toast({
+            title: "Like removed",
+            description: "You have removed your like from this post"
+          });
+        } else {
+          // Add new like
+          const { error: insertError } = await supabase
+            .from('post_likes')
+            .insert({ user_id: user.id, post_id: post.id });
+          
+          if (insertError) throw insertError;
+          
+          setLiked(true);
+          setLikeCount(prev => prev + 1);
+          
+          toast({
+            title: "Post liked",
+            description: "You have liked this post"
+          });
+        }
+      } catch (error) {
+        console.error("Error toggling like:", error);
+        toast({
+          variant: "destructive",
+          title: "Failed to update like",
+          description: "Please try again later"
+        });
+      }
     }
-    setLiked(!liked);
-    
-    toast({
-      title: liked ? "Post unliked" : "Post liked",
-      description: liked ? "You have removed your like from this post" : "You have liked this post"
-    });
   };
   
-  const toggleBookmark = () => {
-    setIsBookmarked(!isBookmarked);
+  const toggleBookmark = async () => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication required",
+        description: "Please log in to bookmark posts"
+      });
+      return;
+    }
     
-    toast({
-      title: isBookmarked ? "Post removed from bookmarks" : "Post bookmarked",
-      description: isBookmarked 
-        ? "This post has been removed from your bookmarks" 
-        : "This post has been added to your bookmarks"
-    });
+    if (onBookmark) {
+      const result = await onBookmark(post.id, post.title, post.content);
+      
+      if (result !== null) {
+        setBookmarked(result);
+        
+        toast({
+          title: result ? "Post bookmarked" : "Bookmark removed",
+          description: result 
+            ? "This post has been added to your bookmarks" 
+            : "This post has been removed from your bookmarks"
+        });
+      }
+    } else {
+      try {
+        // Check if post is already bookmarked
+        const { data: existingBookmark, error: checkError } = await supabase
+          .from('bookmarks')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('content_id', post.id)
+          .eq('content_type', 'post');
+        
+        if (checkError) throw checkError;
+        
+        if (existingBookmark && existingBookmark.length > 0) {
+          // Remove bookmark
+          const { error: deleteError } = await supabase
+            .from('bookmarks')
+            .delete()
+            .eq('id', existingBookmark[0].id);
+          
+          if (deleteError) throw deleteError;
+          
+          setBookmarked(false);
+          
+          toast({
+            title: "Bookmark removed",
+            description: "This post has been removed from your bookmarks"
+          });
+        } else {
+          // Add bookmark
+          const { error: insertError } = await supabase
+            .from('bookmarks')
+            .insert({
+              user_id: user.id,
+              content_id: post.id,
+              content_type: 'post',
+              title: post.title,
+              description: post.content
+            });
+          
+          if (insertError) throw insertError;
+          
+          setBookmarked(true);
+          
+          toast({
+            title: "Post bookmarked",
+            description: "This post has been added to your bookmarks"
+          });
+        }
+      } catch (error) {
+        console.error("Error toggling bookmark:", error);
+        toast({
+          variant: "destructive",
+          title: "Failed to update bookmark",
+          description: "Please try again later"
+        });
+      }
+    }
   };
   
   const handleShare = () => {
@@ -147,13 +331,13 @@ export const ForumPost: React.FC<ForumPostProps> = ({
       <Card className={`p-4 ${isPending ? "border-amber-300 border-2" : ""}`}>
         <div className="flex gap-4">
           <Avatar>
-            <AvatarFallback>{getInitials(post.user?.full_name || 'User')}</AvatarFallback>
+            <AvatarFallback>{getInitials(post.user?.full_name || post.user?.name || 'User')}</AvatarFallback>
           </Avatar>
           
           <div className="flex-1">
             <div className="flex justify-between items-start">
               <div>
-                <div className="font-medium">{post.user?.full_name || 'Unknown User'}</div>
+                <div className="font-medium">{post.user?.full_name || post.user?.name || 'Unknown User'}</div>
                 <div className="text-xs text-muted-foreground">{formatDate(post.created_at)}</div>
               </div>
               
@@ -251,15 +435,15 @@ export const ForumPost: React.FC<ForumPostProps> = ({
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className={`text-muted-foreground ${isBookmarked ? 'text-primary' : ''}`} 
+                className={`text-muted-foreground ${bookmarked ? 'text-primary' : ''}`} 
                 onClick={toggleBookmark}
               >
-                {isBookmarked ? (
+                {bookmarked ? (
                   <BookmarkCheck className="h-4 w-4 mr-2 fill-primary" />
                 ) : (
                   <Bookmark className="h-4 w-4 mr-2" />
                 )}
-                {isBookmarked ? "Saved" : "Save"}
+                {bookmarked ? "Saved" : "Save"}
               </Button>
             </div>
             
@@ -268,7 +452,7 @@ export const ForumPost: React.FC<ForumPostProps> = ({
                 {post.approved && (
                   <div className="flex gap-3 mt-4">
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback>{getInitials("You")}</AvatarFallback>
+                      <AvatarFallback>{getInitials(user?.user_metadata?.full_name || user?.user_metadata?.name || "You")}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <Textarea 
