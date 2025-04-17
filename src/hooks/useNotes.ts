@@ -1,8 +1,8 @@
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { notesService } from "@/services/notesService";
 
 export interface Note {
   id: string;
@@ -29,11 +29,7 @@ export const useNotes = () => {
     
     try {
       setLoading(true);
-      
-      const { data, error } = await supabase.rpc('get_user_notes') as any;
-        
-      if (error) throw error;
-      
+      const data = await notesService.getUserNotes();
       setNotes(data || []);
     } catch (error) {
       console.error("Error fetching notes:", error);
@@ -58,14 +54,7 @@ export const useNotes = () => {
     }
     
     try {
-      const { data, error } = await supabase.rpc('update_note', {
-        lesson_id_param: lessonId,
-        course_id_param: courseId,
-        content_param: content,
-        user_id_param: user.id
-      }) as any;
-      
-      if (error) throw error;
+      const data = await notesService.updateNote(lessonId, courseId, content);
       
       if (data) {
         const existingNoteIndex = notes.findIndex(
@@ -108,21 +97,18 @@ export const useNotes = () => {
     if (!user) return false;
     
     try {
-      const { error } = await supabase.rpc('delete_note', {
-        note_id_param: noteId,
-        user_id_param: user.id
-      }) as any;
+      const success = await notesService.deleteNote(noteId);
         
-      if (error) throw error;
+      if (success) {
+        setNotes(notes.filter(n => n.id !== noteId));
+        
+        toast({
+          title: "Note deleted",
+          description: "Your note has been deleted."
+        });
+      }
       
-      setNotes(notes.filter(n => n.id !== noteId));
-      
-      toast({
-        title: "Note deleted",
-        description: "Your note has been deleted."
-      });
-      
-      return true;
+      return success;
     } catch (error) {
       console.error("Error deleting note:", error);
       toast({

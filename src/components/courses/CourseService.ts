@@ -728,13 +728,11 @@ export const isCourseSaved = async (userId: string, courseId: string): Promise<b
       return false;
     }
     
-    const { data, error } = await supabase
-      .from('bookmarks')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('content_id', courseId)
-      .eq('content_type', 'course')
-      .single();
+    const { data, error } = await supabase.rpc('check_bookmark', { 
+      user_id_param: userId,
+      content_id_param: courseId,
+      content_type_param: 'course'
+    }) as any;
     
     if (error && error.code !== 'PGRST116') {
       throw error;
@@ -754,41 +752,19 @@ export const toggleCourseSaved = async (userId: string, course: Course): Promise
       return false;
     }
     
-    // Check if already bookmarked
-    const { data: existingBookmark, error: checkError } = await supabase
-      .from('bookmarks')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('content_id', course.id)
-      .eq('content_type', 'course');
+    // Use RPC function instead of direct table access
+    const { data, error } = await supabase.rpc('toggle_bookmark', {
+      user_id_param: userId,
+      content_id_param: course.id,
+      content_type_param: 'course',
+      title_param: course.title,
+      description_param: course.description || '',
+      thumbnail_param: course.thumbnail || ''
+    }) as any;
     
-    if (checkError) throw checkError;
+    if (error) throw error;
     
-    if (existingBookmark && existingBookmark.length > 0) {
-      // Remove bookmark
-      const { error: deleteError } = await supabase
-        .from('bookmarks')
-        .delete()
-        .eq('id', existingBookmark[0].id);
-      
-      if (deleteError) throw deleteError;
-      return false; // Not bookmarked anymore
-    } else {
-      // Add bookmark
-      const { error: insertError } = await supabase
-        .from('bookmarks')
-        .insert({
-          user_id: userId,
-          content_id: course.id,
-          content_type: 'course',
-          title: course.title,
-          description: course.description,
-          thumbnail: course.thumbnail
-        });
-      
-      if (insertError) throw insertError;
-      return true; // Bookmarked
-    }
+    return data === true;
   } catch (error) {
     console.error("Error toggling course bookmark:", error);
     return false;
@@ -808,41 +784,19 @@ export const toggleLessonSaved = async (
       return false;
     }
     
-    // Check if already bookmarked
-    const { data: existingBookmark, error: checkError } = await supabase
-      .from('bookmarks')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('content_id', lessonId)
-      .eq('content_type', 'lesson');
+    // Use RPC function instead of direct table access
+    const { data, error } = await supabase.rpc('toggle_bookmark', {
+      user_id_param: userId,
+      content_id_param: lessonId,
+      content_type_param: 'lesson',
+      title_param: title,
+      description_param: `Course: ${getCourseById(courseId)?.title || courseId}`,
+      thumbnail_param: thumbnail || ''
+    }) as any;
     
-    if (checkError) throw checkError;
+    if (error) throw error;
     
-    if (existingBookmark && existingBookmark.length > 0) {
-      // Remove bookmark
-      const { error: deleteError } = await supabase
-        .from('bookmarks')
-        .delete()
-        .eq('id', existingBookmark[0].id);
-      
-      if (deleteError) throw deleteError;
-      return false; // Not bookmarked anymore
-    } else {
-      // Add bookmark
-      const { error: insertError } = await supabase
-        .from('bookmarks')
-        .insert({
-          user_id: userId,
-          content_id: lessonId,
-          content_type: 'lesson',
-          title: title,
-          description: `Course: ${getCourseById(courseId)?.title || courseId}`,
-          thumbnail: thumbnail
-        });
-      
-      if (insertError) throw insertError;
-      return true; // Bookmarked
-    }
+    return data === true;
   } catch (error) {
     console.error("Error toggling lesson bookmark:", error);
     return false;
@@ -856,13 +810,11 @@ export const isLessonSaved = async (userId: string, lessonId: string): Promise<b
       return false;
     }
     
-    const { data, error } = await supabase
-      .from('bookmarks')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('content_id', lessonId)
-      .eq('content_type', 'lesson')
-      .single();
+    const { data, error } = await supabase.rpc('check_bookmark', {
+      user_id_param: userId,
+      content_id_param: lessonId,
+      content_type_param: 'lesson'
+    }) as any;
     
     if (error && error.code !== 'PGRST116') {
       throw error;

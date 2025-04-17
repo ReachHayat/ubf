@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { 
@@ -28,6 +27,8 @@ import {
   isVideoWatched,
   updateUserNotes
 } from "@/components/courses/CourseService";
+import { notesService } from "@/services/notesService";
+import { courseNotesService } from "@/services/courseNotesService";
 
 const CourseViewer = () => {
   const { id, lessonId } = useParams<{ id: string, lessonId: string }>();
@@ -48,7 +49,6 @@ const CourseViewer = () => {
   const [resources, setResources] = useState<{name: string, type: string, url: string}[]>([]);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
-  // Load course data
   useEffect(() => {
     if (id) {
       setIsLoading(true);
@@ -58,7 +58,6 @@ const CourseViewer = () => {
         setCourse(courseData);
         setSections(courseData.sections || []);
         
-        // Find the current lesson if lessonId is provided
         if (lessonId) {
           let foundLesson = null;
           
@@ -66,7 +65,6 @@ const CourseViewer = () => {
             section.lessons.forEach(lesson => {
               if (lesson.id === lessonId) {
                 foundLesson = lesson;
-                // Mark as watched when loaded
                 markVideoAsWatched(id, lessonId);
               }
             });
@@ -75,7 +73,6 @@ const CourseViewer = () => {
           if (foundLesson) {
             setCurrentLesson(foundLesson);
           } else if (courseData.sections && courseData.sections.length > 0) {
-            // Default to first lesson if lessonId is not found
             const firstSection = courseData.sections[0];
             if (firstSection.lessons && firstSection.lessons.length > 0) {
               setCurrentLesson(firstSection.lessons[0]);
@@ -83,7 +80,6 @@ const CourseViewer = () => {
             }
           }
         } else if (courseData.sections && courseData.sections.length > 0) {
-          // Default to first lesson if no lessonId is provided
           const firstSection = courseData.sections[0];
           if (firstSection.lessons && firstSection.lessons.length > 0) {
             setCurrentLesson(firstSection.lessons[0]);
@@ -91,7 +87,6 @@ const CourseViewer = () => {
           }
         }
         
-        // Load notes for this lesson if available
         if (lessonId) {
           loadNotes(lessonId);
           loadDiscussions(lessonId);
@@ -112,31 +107,22 @@ const CourseViewer = () => {
   }, [id, lessonId, navigate]);
 
   const loadNotes = async (lessonId: string) => {
+    if (!user || !course?.id) return;
+    
     try {
-      // In a real implementation, fetch notes from Supabase
-      // For now, we'll use mock data stored in localStorage
-      const savedNote = localStorage.getItem(`note-${user?.id}-${lessonId}`);
-      if (savedNote) {
-        setNoteContent(savedNote);
-      } else {
-        setNoteContent("");
-      }
+      const savedNote = await courseNotesService.getUserNotes(user.id, lessonId, course.id);
+      setNoteContent(savedNote || "");
     } catch (error) {
       console.error("Error loading notes:", error);
     }
   };
 
   const saveNote = async () => {
-    if (!user || !lessonId) return;
+    if (!user || !lessonId || !course?.id) return;
     
     setIsSavingNote(true);
     try {
-      // In a real implementation, save to Supabase
-      // For now, we'll use localStorage
-      localStorage.setItem(`note-${user.id}-${lessonId}`, noteContent);
-      
-      // Mock update to user's notes collection
-      updateUserNotes(user.id, lessonId, noteContent);
+      await courseNotesService.updateUserNotes(user.id, lessonId, course.id, noteContent);
       
       toast({
         title: "Note saved",
@@ -156,8 +142,6 @@ const CourseViewer = () => {
 
   const loadDiscussions = async (lessonId: string) => {
     try {
-      // In a real implementation, fetch from Supabase
-      // For now, use mock data
       const mockDiscussions = [
         {
           id: "disc-1",
@@ -202,7 +186,6 @@ const CourseViewer = () => {
     
     setIsPostingComment(true);
     try {
-      // In a real implementation, post to Supabase
       const newDiscussion = {
         id: `disc-${Date.now()}`,
         user_id: user.id,
@@ -235,8 +218,6 @@ const CourseViewer = () => {
 
   const loadResources = async (lessonId: string) => {
     try {
-      // In a real implementation, fetch from Supabase
-      // For now, use mock data based on the lesson
       const mockResources = [
         {
           name: "Lesson Slides",
@@ -265,8 +246,6 @@ const CourseViewer = () => {
     if (!user) return;
     
     try {
-      // In a real implementation, fetch from Supabase
-      // For now, use localStorage
       const bookmarks = JSON.parse(localStorage.getItem(`bookmarks-${user.id}`) || "[]");
       setIsBookmarked(bookmarks.includes(lessonId));
     } catch (error) {
@@ -278,13 +257,10 @@ const CourseViewer = () => {
     if (!user || !lessonId) return;
     
     try {
-      // In a real implementation, update in Supabase
-      // For now, use localStorage
       const bookmarksKey = `bookmarks-${user.id}`;
       const bookmarks = JSON.parse(localStorage.getItem(bookmarksKey) || "[]");
       
       if (isBookmarked) {
-        // Remove bookmark
         const updatedBookmarks = bookmarks.filter((id: string) => id !== lessonId);
         localStorage.setItem(bookmarksKey, JSON.stringify(updatedBookmarks));
         setIsBookmarked(false);
@@ -293,7 +269,6 @@ const CourseViewer = () => {
           description: "This lesson has been removed from your bookmarks."
         });
       } else {
-        // Add bookmark
         bookmarks.push(lessonId);
         localStorage.setItem(bookmarksKey, JSON.stringify(bookmarks));
         setIsBookmarked(true);
@@ -323,11 +298,9 @@ const CourseViewer = () => {
   const downloadTranscript = () => {
     if (!currentLesson) return;
     
-    // Create a blob with the transcript content
     const transcript = currentLesson.transcript || "No transcript available for this lesson.";
     const blob = new Blob([transcript], { type: "text/plain" });
     
-    // Create a download link and trigger it
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `${currentLesson.title.replace(/\s+/g, "-")}-transcript.txt`;
@@ -360,7 +333,6 @@ const CourseViewer = () => {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      {/* Custom Header */}
       <header className="h-16 border-b bg-background flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="bg-primary text-primary-foreground p-1.5 rounded-lg">
@@ -380,7 +352,6 @@ const CourseViewer = () => {
       </header>
 
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
-        {/* Navigation Sidebar */}
         <div className="w-64 border-r bg-muted/30 overflow-y-auto flex-shrink-0">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-4">
@@ -419,10 +390,8 @@ const CourseViewer = () => {
           </ScrollArea>
         </div>
 
-        {/* Main Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="container max-w-5xl mx-auto p-4 space-y-6">
-            {/* Video Player */}
             <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
               <video
                 ref={videoRef}
@@ -457,7 +426,6 @@ const CourseViewer = () => {
               </div>
             </div>
             
-            {/* Tabs Section */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid grid-cols-4 w-full">
                 <TabsTrigger value="transcript">Transcript</TabsTrigger>
@@ -598,7 +566,6 @@ const CourseViewer = () => {
                               </div>
                             </div>
                             
-                            {/* Replies */}
                             {discussion.replies && discussion.replies.length > 0 && (
                               <div className="pl-11 space-y-3 mt-3">
                                 {discussion.replies.map((reply: any) => (
