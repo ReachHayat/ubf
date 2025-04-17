@@ -588,137 +588,22 @@ if (!localStorage.getItem(ENROLLED_COURSES_KEY)) {
   setEnrolledCourseIds(["1"]);
 }
 
+// We're now using the courseNotesService for notes functionality
+import { courseNotesService } from "@/services/courseNotesService";
+
 // Update user's notes for a specific lesson
 export const updateUserNotes = async (userId: string, lessonId: string, courseId: string, noteContent: string): Promise<void> => {
-  try {
-    if (!userId) {
-      console.error("User ID is required to update notes");
-      return;
-    }
-    
-    // Check if note already exists
-    const { data: existingNotes, error: fetchError } = await supabase
-      .from('notes')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('lesson_id', lessonId)
-      .eq('course_id', courseId);
-      
-    if (fetchError) throw fetchError;
-    
-    if (existingNotes && existingNotes.length > 0) {
-      // Update existing note
-      const { error: updateError } = await supabase
-        .from('notes')
-        .update({
-          content: noteContent,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingNotes[0].id);
-        
-      if (updateError) throw updateError;
-    } else {
-      // Create new note
-      const { error: insertError } = await supabase
-        .from('notes')
-        .insert({
-          user_id: userId,
-          lesson_id: lessonId,
-          course_id: courseId,
-          content: noteContent
-        });
-        
-      if (insertError) throw insertError;
-    }
-    
-    // Also update localStorage for offline access
-    const notesKey = `user-notes-${userId}`;
-    const userNotes = JSON.parse(localStorage.getItem(notesKey) || "{}");
-    
-    userNotes[lessonId] = {
-      content: noteContent,
-      updatedAt: new Date().toISOString(),
-    };
-    
-    localStorage.setItem(notesKey, JSON.stringify(userNotes));
-  } catch (error) {
-    console.error("Error updating user notes:", error);
-  }
+  return courseNotesService.updateUserNotes(userId, lessonId, courseId, noteContent);
 };
 
 // Get user notes for a specific lesson
 export const getUserNotes = async (userId: string, lessonId: string, courseId: string): Promise<string> => {
-  try {
-    if (!userId) {
-      return "";
-    }
-    
-    const { data, error } = await supabase
-      .from('notes')
-      .select('content')
-      .eq('user_id', userId)
-      .eq('lesson_id', lessonId)
-      .eq('course_id', courseId)
-      .single();
-    
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
-      throw error;
-    }
-    
-    if (data) {
-      return data.content;
-    }
-    
-    // Fallback to localStorage if not found in DB
-    const notesKey = `user-notes-${userId}`;
-    const userNotes = JSON.parse(localStorage.getItem(notesKey) || "{}");
-    return userNotes[lessonId]?.content || "";
-    
-  } catch (error) {
-    console.error("Error getting user notes:", error);
-    return "";
-  }
+  return courseNotesService.getUserNotes(userId, lessonId, courseId);
 };
 
 // Get all user notes
 export const getAllUserNotes = async (userId: string): Promise<{ lessonId: string, courseId: string, content: string, updatedAt: string }[]> => {
-  try {
-    if (!userId) {
-      return [];
-    }
-    
-    const { data, error } = await supabase
-      .from('notes')
-      .select('lesson_id, course_id, content, updated_at')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false });
-    
-    if (error) throw error;
-    
-    if (data && data.length > 0) {
-      return data.map(note => ({
-        lessonId: note.lesson_id,
-        courseId: note.course_id,
-        content: note.content,
-        updatedAt: note.updated_at
-      }));
-    }
-    
-    // Fallback to localStorage if not found in DB
-    const notesKey = `user-notes-${userId}`;
-    const userNotes = JSON.parse(localStorage.getItem(notesKey) || "{}");
-    
-    return Object.entries(userNotes).map(([lessonId, noteData]: [string, any]) => ({
-      lessonId,
-      courseId: "", // Not available in localStorage version
-      content: noteData.content,
-      updatedAt: noteData.updatedAt
-    }));
-    
-  } catch (error) {
-    console.error("Error getting all user notes:", error);
-    return [];
-  }
+  return courseNotesService.getAllUserNotes(userId);
 };
 
 // Check if course is bookmarked

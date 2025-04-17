@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { 
   Tabs, TabsContent, TabsList, TabsTrigger 
 } from "@/components/ui/tabs";
@@ -24,8 +24,7 @@ import { Course, CourseSection, CourseLesson } from "@/types/course";
 import { 
   getCourseById, 
   markVideoAsWatched,
-  isVideoWatched,
-  updateUserNotes
+  isVideoWatched
 } from "@/components/courses/CourseService";
 import { notesService } from "@/services/notesService";
 import { courseNotesService } from "@/services/courseNotesService";

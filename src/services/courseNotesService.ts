@@ -30,8 +30,7 @@ export const courseNotesService = {
       await supabase.rpc('update_note', {
         lesson_id_param: lessonId,
         course_id_param: courseId,
-        content_param: noteContent,
-        user_id_param: userId
+        content_param: noteContent
       });
       
       // Also update localStorage for offline access
@@ -57,8 +56,7 @@ export const courseNotesService = {
       
       const { data, error } = await supabase.rpc('get_lesson_note', {
         lesson_id_param: lessonId,
-        course_id_param: courseId,
-        user_id_param: userId
+        course_id_param: courseId
       }) as any;
       
       if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
@@ -86,9 +84,7 @@ export const courseNotesService = {
         return [];
       }
       
-      const { data, error } = await supabase.rpc('get_user_notes', {
-        user_id_param: userId
-      }) as any;
+      const { data, error } = await supabase.rpc('get_user_notes') as any;
       
       if (error) throw error;
       
