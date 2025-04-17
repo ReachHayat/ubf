@@ -1,110 +1,87 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { Note } from "./notesService";
 
-export interface NoteResult {
-  lessonId: string;
-  courseId: string;
+export interface CourseNote {
+  id: string;
+  user_id: string;
+  lesson_id: string;
+  course_id: string;
   content: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export const courseNotesService = {
-  updateUserNotes: async (userId: string, lessonId: string, courseId: string, noteContent: string): Promise<void> => {
+  getNotes: async (courseId?: string, lessonId?: string): Promise<CourseNote[]> => {
     try {
-      if (!userId) {
-        console.error("User ID is required to update notes");
-        return;
-      }
-      
-      await supabase.functions.invoke('update_note', {
-        body: {
-          lesson_id_param: lessonId,
-          course_id_param: courseId,
-          content_param: noteContent
-        }
-      });
-      
-      // Also update localStorage for offline access
-      const notesKey = `user-notes-${userId}`;
-      const userNotes = JSON.parse(localStorage.getItem(notesKey) || "{}");
-      
-      userNotes[lessonId] = {
-        content: noteContent,
-        updatedAt: new Date().toISOString(),
-      };
-      
-      localStorage.setItem(notesKey, JSON.stringify(userNotes));
-    } catch (error) {
-      console.error("Error updating user notes:", error);
-    }
-  },
+      let query = supabase
+        .from('course_notes')
+        .select('*')
+        .order('updated_at', { ascending: false });
 
-  getUserNotes: async (userId: string, lessonId: string, courseId: string): Promise<string> => {
-    try {
-      if (!userId) {
-        return "";
+      if (courseId) {
+        query = query.eq('course_id', courseId);
       }
-      
-      const { data, error } = await supabase.functions.invoke('get_lesson_note', {
-        body: {
-          lesson_id_param: lessonId,
-          course_id_param: courseId
-        }
-      }) as any;
-      
-      if (error) {
-        throw error;
-      }
-      
-      if (data && data.content) {
-        return data.content;
-      }
-      
-      // Fallback to localStorage if not found in DB
-      const notesKey = `user-notes-${userId}`;
-      const userNotes = JSON.parse(localStorage.getItem(notesKey) || "{}");
-      return userNotes[lessonId]?.content || "";
-      
-    } catch (error) {
-      console.error("Error getting user notes:", error);
-      return "";
-    }
-  },
 
-  getAllUserNotes: async (userId: string): Promise<NoteResult[]> => {
-    try {
-      if (!userId) {
-        return [];
+      if (lessonId) {
+        query = query.eq('lesson_id', lessonId);
       }
-      
-      const { data, error } = await supabase.functions.invoke('get_user_notes') as any;
-      
+
+      const { data: notes, error } = await query;
+
       if (error) throw error;
-      
-      if (data && data.length > 0) {
-        return data.map((note: Note) => ({
-          lessonId: note.lesson_id,
-          courseId: note.course_id,
-          content: note.content,
-          updatedAt: note.updated_at
-        }));
-      }
-      
-      // Fallback to localStorage if not found in DB
-      const notesKey = `user-notes-${userId}`;
-      const userNotes = JSON.parse(localStorage.getItem(notesKey) || "{}");
-      
-      return Object.entries(userNotes).map(([lessonId, noteData]: [string, any]) => ({
-        lessonId,
-        courseId: "", // Not available in localStorage version
-        content: noteData.content,
-        updatedAt: noteData.updatedAt
-      }));
-      
+      return notes || [];
     } catch (error) {
-      console.error("Error getting all user notes:", error);
+      console.error("Error fetching notes:", error);
       return [];
+    }
+  },
+
+  createNote: async (noteData: Omit<CourseNote, 'id' | 'created_at' | 'updated_at'>): Promise<CourseNote | null> => {
+    try {
+      const { data: note, error } = await supabase
+        .from('course_notes')
+        .insert([noteData])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return note;
+    } catch (error) {
+      console.error("Error creating note:", error);
+      return null;
+    }
+  },
+
+  updateNote: async (id: string, content: string): Promise<CourseNote | null> => {
+    try {
+      const { data: note, error } = await supabase
+        .from('course_notes')
+        .update({ content, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return note;
+    } catch (error) {
+      console.error("Error updating note:", error);
+      return null;
+    }
+  },
+
+  deleteNote: async (id: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('course_notes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      return false;
     }
   }
 };

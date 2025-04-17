@@ -1,26 +1,21 @@
-
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { getCourses } from "@/components/courses/CourseService";
-import { notesService } from "@/services/notesService";
+import { courseService } from "@/services/courseService";
+import { courseNotesService, CourseNote } from "@/services/courseNotesService";
+import { Course } from "@/types/course";
 
-interface LatestNote {
-  id: string;
-  lessonId: string;
-  courseId: string;
+interface EnrichedNote extends CourseNote {
   courseName: string;
   lessonName: string;
-  content: string;
-  updatedAt: string;
 }
 
 const LatestNotes: React.FC = () => {
   const { user } = useAuth();
-  const [latestNotes, setLatestNotes] = useState<LatestNote[]>([]);
+  const [latestNotes, setLatestNotes] = useState<EnrichedNote[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,16 +24,27 @@ const LatestNotes: React.FC = () => {
       
       try {
         setLoading(true);
-        const notes = await notesService.getUserNotes();
+        const notes = await courseNotesService.getNotes();
         
         if (notes && notes.length > 0) {
-          const processedNotes = await Promise.all(notes.slice(0, 3).map(async (note) => {
-            // Find course and lesson info
-            const course = getCourses().find((c) => c.id === note.course_id);
+          const coursesMap = new Map<string, Course>();
+          
+          // Get unique course IDs
+          const courseIds = [...new Set(notes.map(note => note.course_id))];
+          
+          // Fetch all required courses in parallel
+          await Promise.all(courseIds.map(async (courseId) => {
+            const course = await courseService.getCourseById(courseId);
+            if (course) {
+              coursesMap.set(courseId, course);
+            }
+          }));
+
+          const enrichedNotes = notes.slice(0, 3).map(note => {
+            const course = coursesMap.get(note.course_id);
             let lessonName = "Unknown Lesson";
             
-            if (course && course.sections) {
-              // Find the lesson in the course sections
+            if (course?.sections) {
               for (const section of course.sections) {
                 const lesson = section.lessons.find(l => l.id === note.lesson_id);
                 if (lesson) {
@@ -49,67 +55,16 @@ const LatestNotes: React.FC = () => {
             }
             
             return {
-              id: note.id,
-              lessonId: note.lesson_id,
-              courseId: note.course_id,
+              ...note,
               courseName: course?.title || "Unknown Course",
-              lessonName: lessonName,
-              content: note.content,
-              updatedAt: note.updated_at
+              lessonName
             };
-          }));
+          });
           
-          setLatestNotes(processedNotes);
-        } else {
-          // Fallback to using mock data if no notes in database
-          const mockNotes = [
-            {
-              id: "note-1",
-              lessonId: "lesson-1",
-              courseId: "1",
-              courseName: "Design Principles",
-              lessonName: "Introduction to Design Thinking",
-              content: "Design thinking is a process for creative problem solving. It emphasizes observation, empathy, finding patterns...",
-              updatedAt: new Date(Date.now() - 86400000).toISOString() // 1 day ago
-            },
-            {
-              id: "note-2",
-              lessonId: "lesson-2",
-              courseId: "1",
-              courseName: "Design Principles",
-              lessonName: "User-Centered Design",
-              content: "User-centered design (UCD) is an iterative design process in which designers focus on the users and their needs...",
-              updatedAt: new Date(Date.now() - 172800000).toISOString() // 2 days ago
-            }
-          ];
-          
-          setLatestNotes(mockNotes);
+          setLatestNotes(enrichedNotes);
         }
       } catch (error) {
         console.error("Error fetching notes:", error);
-        // Fallback to mock data
-        const mockNotes = [
-          {
-            id: "note-1",
-            lessonId: "lesson-1",
-            courseId: "1",
-            courseName: "Design Principles",
-            lessonName: "Introduction to Design Thinking",
-            content: "Design thinking is a process for creative problem solving. It emphasizes observation, empathy, finding patterns...",
-            updatedAt: new Date(Date.now() - 86400000).toISOString() // 1 day ago
-          },
-          {
-            id: "note-2",
-            lessonId: "lesson-2",
-            courseId: "1",
-            courseName: "Design Principles",
-            lessonName: "User-Centered Design",
-            content: "User-centered design (UCD) is an iterative design process in which designers focus on the users and their needs...",
-            updatedAt: new Date(Date.now() - 172800000).toISOString() // 2 days ago
-          }
-        ];
-        
-        setLatestNotes(mockNotes);
       } finally {
         setLoading(false);
       }
@@ -159,7 +114,7 @@ const LatestNotes: React.FC = () => {
                     size="sm" 
                     asChild
                   >
-                    <Link to={`/course-viewer/${note.courseId}/${note.lessonId}`}>
+                    <Link to={`/course-viewer/${note.course_id}/${note.lesson_id}`}>
                       View Lesson
                     </Link>
                   </Button>
@@ -168,7 +123,7 @@ const LatestNotes: React.FC = () => {
                   {note.content}
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Updated {new Date(note.updatedAt).toLocaleDateString()}
+                  Updated {new Date(note.updated_at).toLocaleDateString()}
                 </p>
               </div>
             ))}
