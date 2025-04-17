@@ -83,5 +83,74 @@ export const courseNotesService = {
       console.error("Error deleting note:", error);
       return false;
     }
+  },
+  
+  // Add the legacy method names for backward compatibility
+  getUserNotes: async (userId: string, lessonId: string, courseId: string): Promise<string> => {
+    try {
+      const { data: notes, error } = await supabase
+        .from('course_notes')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('lesson_id', lessonId)
+        .eq('course_id', courseId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return notes?.content || '';
+    } catch (error) {
+      console.error("Error fetching user note:", error);
+      return '';
+    }
+  },
+  
+  updateUserNotes: async (userId: string, lessonId: string, courseId: string, content: string): Promise<void> => {
+    try {
+      // Check if note exists
+      const { data: existingNote } = await supabase
+        .from('course_notes')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('lesson_id', lessonId)
+        .eq('course_id', courseId)
+        .maybeSingle();
+
+      if (existingNote) {
+        // Update existing note
+        await supabase
+          .from('course_notes')
+          .update({ content, updated_at: new Date().toISOString() })
+          .eq('id', existingNote.id);
+      } else {
+        // Create new note
+        await supabase
+          .from('course_notes')
+          .insert([{ user_id: userId, lesson_id: lessonId, course_id: courseId, content }]);
+      }
+    } catch (error) {
+      console.error("Error updating user note:", error);
+    }
+  },
+  
+  getAllUserNotes: async (userId: string): Promise<{ lessonId: string, courseId: string, content: string, updatedAt: string }[]> => {
+    try {
+      const { data: notes, error } = await supabase
+        .from('course_notes')
+        .select('*')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+      
+      return (notes || []).map(note => ({
+        lessonId: note.lesson_id,
+        courseId: note.course_id,
+        content: note.content,
+        updatedAt: note.updated_at
+      }));
+    } catch (error) {
+      console.error("Error fetching all user notes:", error);
+      return [];
+    }
   }
 };
