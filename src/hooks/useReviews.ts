@@ -4,7 +4,8 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { reviewService, CourseReview } from "@/services/reviewService";
 
-export { CourseReview } from "@/services/reviewService";
+// Use export type instead of export for re-exporting types
+export type { CourseReview } from "@/services/reviewService";
 
 export const useReviews = (courseId?: string) => {
   const { user } = useAuth();

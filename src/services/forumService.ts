@@ -149,5 +149,33 @@ export const forumService = {
       console.error("Error deleting forum post:", error);
       return false;
     }
+  },
+
+  // Add the missing toggleBookmark function
+  toggleBookmark: async (
+    userId: string,
+    contentId: string,
+    contentType: string,
+    title: string,
+    description?: string,
+    thumbnail?: string
+  ): Promise<boolean> => {
+    try {
+      const response = await supabase.functions.invoke('toggle_bookmark', {
+        body: {
+          user_id_param: userId,
+          content_id_param: contentId,
+          content_type_param: contentType,
+          title_param: title,
+          description_param: description || '',
+          thumbnail_param: thumbnail || ''
+        }
+      }) as RPCResponse<boolean>;
+      
+      return !!response.data;
+    } catch (error) {
+      console.error("Error toggling bookmark:", error);
+      return false;
+    }
   }
 };
