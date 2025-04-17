@@ -36,7 +36,9 @@ export const courseService = {
         rating: courseData.rating || 0,
         reviews: courseData.reviews || 0,
         totalHours: Number(courseData.total_hours) || 0,
-        status: courseData.status,
+        status: (courseData.status === 'published' || courseData.status === 'draft') 
+          ? courseData.status 
+          : "draft", // Ensure status is either 'published' or 'draft'
         lastUpdated: courseData.updated_at,
         price: courseData.price || 0,
         tags: courseData.tags || [],
@@ -100,7 +102,9 @@ export const courseService = {
         rating: courseData.rating || 0,
         reviews: courseData.reviews || 0,
         totalHours: Number(courseData.total_hours) || 0,
-        status: courseData.status,
+        status: (courseData.status === 'published' || courseData.status === 'draft') 
+          ? courseData.status 
+          : "draft", // Ensure status is either 'published' or 'draft'
         lastUpdated: courseData.updated_at,
         price: courseData.price || 0,
         tags: courseData.tags || [],
@@ -138,7 +142,7 @@ export const courseService = {
         instructor_id: "some-default-id", // This needs to be a valid UUID
         thumbnail: courseData.thumbnail,
         logo: courseData.logo,
-        status: courseData.status || "draft",
+        status: courseData.status === "published" ? "published" : "draft", // Ensure status is either 'published' or 'draft'
         rating: courseData.rating,
         reviews: courseData.reviews,
         total_hours: courseData.totalHours,
@@ -158,7 +162,7 @@ export const courseService = {
       if (!data) return null;
       
       // We need to fetch the complete course with related data
-      return this.getCourseById(data.id);
+      return await courseService.getCourseById(data.id);
     } catch (error) {
       console.error("Error creating course:", error);
       return null;
@@ -170,11 +174,14 @@ export const courseService = {
       // Transform the Course type to match the database schema
       const dbCourseData: Record<string, any> = {};
       
-      if (courseData.title) dbCourseData.title = courseData.title;
+      if (courseData.title !== undefined) dbCourseData.title = courseData.title;
       if (courseData.description !== undefined) dbCourseData.description = courseData.description;
       if (courseData.thumbnail !== undefined) dbCourseData.thumbnail = courseData.thumbnail;
       if (courseData.logo !== undefined) dbCourseData.logo = courseData.logo;
-      if (courseData.status !== undefined) dbCourseData.status = courseData.status;
+      if (courseData.status !== undefined) {
+        // Ensure status is either 'published' or 'draft'
+        dbCourseData.status = courseData.status === "published" ? "published" : "draft";
+      }
       if (courseData.rating !== undefined) dbCourseData.rating = courseData.rating;
       if (courseData.reviews !== undefined) dbCourseData.reviews = courseData.reviews;
       if (courseData.totalHours !== undefined) dbCourseData.total_hours = courseData.totalHours;
@@ -190,7 +197,7 @@ export const courseService = {
       if (error) throw error;
       
       // Fetch the updated course with all related data
-      return this.getCourseById(id);
+      return await courseService.getCourseById(id);
     } catch (error) {
       console.error("Error updating course:", error);
       return null;
@@ -279,7 +286,7 @@ export const toggleLessonSaved = async (
       return false;
     }
     
-    const course = await getCourseById(courseId);
+    const course = await courseService.getCourseById(courseId);
     const description = `Course: ${course?.title || courseId}`;
     
     return bookmarkService.toggleBookmark(
