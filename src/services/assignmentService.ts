@@ -15,7 +15,11 @@ export const assignmentService = {
       return [];
     }
 
-    return data || [];
+    // Ensure types match by casting
+    return (data || []).map(assignment => ({
+      ...assignment,
+      submission_type: assignment.submission_type as 'file' | 'text' | 'url'
+    }));
   },
 
   submitAssignment: async (
@@ -31,7 +35,8 @@ export const assignmentService = {
       .insert({
         assignment_id: assignmentId,
         user_id: (await supabase.auth.getUser()).data.user?.id,
-        ...submission
+        ...submission,
+        status: 'submitted' as const
       })
       .select()
       .single();
@@ -41,6 +46,9 @@ export const assignmentService = {
       return null;
     }
 
-    return data;
+    return {
+      ...data,
+      status: data.status as 'submitted' | 'graded' | 'rejected'
+    };
   }
 };

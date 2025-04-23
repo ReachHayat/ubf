@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import CoursesInProgress from "@/components/dashboard/CoursesInProgress";
 import PopularCategories from "@/components/dashboard/PopularCategories";
 import TopMentors from "@/components/dashboard/TopMentors";
-import BookmarkedCourses from "@/components/dashboard/BookmarkedCourses";
 import LatestNotes from "@/components/dashboard/LatestNotes";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
@@ -62,7 +61,6 @@ const Dashboard = () => {
           <PopularCategories categories={categories} />
         </div>
         <div className="space-y-6">
-          <BookmarkedCourses />
           <TopMentors mentors={mentors} />
         </div>
       </div>

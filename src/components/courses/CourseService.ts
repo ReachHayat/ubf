@@ -314,89 +314,10 @@ export const deleteCourseLesson = (
   }
 };
 
-// Update course assignment
-export const updateCourseAssignment = (
-  courseId: string,
-  assignment: CourseAssignment
-): void => {
-  const course = getCourseById(courseId);
-  if (course) {
-    if (!course.assignments) {
-      course.assignments = [];
-    }
-    
-    const index = course.assignments.findIndex(a => a.id === assignment.id);
-    
-    if (index !== -1) {
-      // Update existing assignment
-      course.assignments[index] = assignment;
-    } else {
-      // Add new assignment
-      course.assignments.push(assignment);
-    }
-    
-    updateCourse(course);
-  }
-};
+// Remove bookmark functionality since we're removing it
 
-// Delete course assignment
-export const deleteCourseAssignment = (courseId: string, assignmentId: string): void => {
-  const course = getCourseById(courseId);
-  if (course && course.assignments) {
-    course.assignments = course.assignments.filter(assignment => assignment.id !== assignmentId);
-    updateCourse(course);
-  }
-};
-
-// Get stats for admin dashboard
-export const getAdminStats = () => {
-  const courses = getCourses();
-  const enrolledCourses = getEnrolledCourses();
-  
-  // Count total assignments across all courses
-  const totalAssignments = courses.reduce((total, course) => {
-    return total + (course.assignments?.length || 0);
-  }, 0);
-  
-  // Get users from Supabase (if available)
-  const getUserCount = async () => {
-    try {
-      const { count } = await supabase
-        .from('users')
-        .select('id', { count: 'exact' });
-      
-      return count || 0;
-    } catch (error) {
-      console.error("Error fetching user count:", error);
-      return 0;
-    }
-  };
-  
-  // Get messages count (community posts)
-  const getMessagesCount = async () => {
-    try {
-      const { count } = await supabase
-        .from('messages')
-        .select('id', { count: 'exact' });
-      
-      return count || 0;
-    } catch (error) {
-      console.error("Error fetching messages count:", error);
-      return 0;
-    }
-  };
-  
-  return {
-    courseCount: courses.length,
-    assignmentCount: totalAssignments,
-    enrollmentCount: enrolledCourses.length,
-    getUserCount,
-    getMessagesCount
-  };
-};
-
-// Mock data
-export const mockCourses: Course[] = [
+// Mock courses data
+const mockCourses = [
   {
     id: "1",
     title: "The Brand Strategy Masterclass",

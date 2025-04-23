@@ -21,7 +21,14 @@ export const quizService = {
       return [];
     }
 
-    return data || [];
+    // Ensure types match by casting as needed
+    return (data || []).map(quiz => ({
+      ...quiz,
+      questions: quiz.questions?.map(question => ({
+        ...question,
+        question_type: question.question_type as 'multiple_choice' | 'true_false' | 'text'
+      }))
+    })) as Quiz[];
   },
 
   createQuizAttempt: async (quizId: string): Promise<QuizAttempt | null> => {
@@ -30,7 +37,7 @@ export const quizService = {
       .insert({
         quiz_id: quizId,
         user_id: (await supabase.auth.getUser()).data.user?.id,
-        status: 'in_progress'
+        status: 'in_progress' as const
       })
       .select()
       .single();
@@ -40,7 +47,10 @@ export const quizService = {
       return null;
     }
 
-    return data;
+    return {
+      ...data,
+      status: data.status as 'in_progress' | 'completed' | 'abandoned'
+    };
   },
 
   submitQuizAnswer: async (answer: Omit<QuizAnswer, 'id'>): Promise<QuizAnswer | null> => {
@@ -62,7 +72,7 @@ export const quizService = {
     const { data, error } = await supabase
       .from('quiz_attempts')
       .update({
-        status: 'completed',
+        status: 'completed' as const,
         score,
         completed_at: new Date().toISOString()
       })
@@ -75,6 +85,9 @@ export const quizService = {
       return null;
     }
 
-    return data;
+    return {
+      ...data,
+      status: data.status as 'in_progress' | 'completed' | 'abandoned'
+    };
   }
 };

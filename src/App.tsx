@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Home } from "@/pages/Home";
-import { Courses } from "@/pages/Courses";
+import Courses from "@/pages/Courses";
 import CourseContent from "@/pages/CourseContent";
 
 const App = () => {
