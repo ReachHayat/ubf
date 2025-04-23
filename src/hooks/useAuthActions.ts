@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { UserWithRoles } from "@/types/auth";
 
 export const useAuthActions = (setUser: (user: UserWithRoles | null | ((prev: UserWithRoles | null) => UserWithRoles | null)) => void) => {
@@ -11,6 +11,7 @@ export const useAuthActions = (setUser: (user: UserWithRoles | null | ((prev: Us
 
   const signIn = async (email: string, password: string) => {
     try {
+      setIsLoading(true);
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -38,11 +39,14 @@ export const useAuthActions = (setUser: (user: UserWithRoles | null | ((prev: Us
         variant: "destructive",
       });
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
+      setIsLoading(true);
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -75,12 +79,17 @@ export const useAuthActions = (setUser: (user: UserWithRoles | null | ((prev: Us
         variant: "destructive",
       });
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const signOut = async () => {
     try {
+      setIsLoading(true);
       await supabase.auth.signOut();
+      // Reset user state to null
+      setUser(null);
       toast({
         title: "Signed out successfully",
       });
@@ -92,11 +101,14 @@ export const useAuthActions = (setUser: (user: UserWithRoles | null | ((prev: Us
         description: "An unexpected error occurred.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const updateUserProfile = async (data: { full_name?: string }) => {
     try {
+      setIsLoading(true);
       const { error } = await supabase.auth.updateUser({
         data: data
       });
@@ -134,6 +146,8 @@ export const useAuthActions = (setUser: (user: UserWithRoles | null | ((prev: Us
         description: "An unexpected error occurred.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
