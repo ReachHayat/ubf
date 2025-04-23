@@ -1,497 +1,293 @@
 
-// Import statements
-import { Course, CourseSection, CourseLesson } from '@/types/course';
-import { bookmarkService } from '@/services/bookmarkService';
-import { courseNotesService } from '@/services/courseNotesService';
+import { Course } from "@/types/course";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
-// Start of fixed mock data
-const mockCourses: Course[] = [
-  {
-    id: "1",
-    title: "Ultimate Brand Framework",
-    category: "Business",
-    instructor: {
-      id: "101",
-      name: "Sarah Johnson",
-      role: "Brand Strategist",
-      avatar: "/lovable-uploads/e98cd24b-ef7d-485c-b055-e522a1b42a50.png",
-    },
-    description: "Learn the essential frameworks for building a strong brand identity from the ground up.",
-    thumbnail: "/lovable-uploads/225b2ac5-0ee7-49a0-ab7c-8110e42dc865.png",
-    rating: 4.8,
-    reviews: 243,
-    progress: 35,
-    hoursCompleted: 2.5,
-    totalHours: 12,
-    enrolled: true,
-    status: "published" as const,
-    lastUpdated: "2023-04-15",
-    price: 49.99,
-    tags: ["branding", "marketing", "business"],
-    bgColor: "#FFE4E1",
-    sections: [
-      {
-        id: "s1",
-        title: "Introduction to Branding",
-        duration: "2h 15m",
-        expanded: true,
-        lessons: [
-          {
-            id: "l1",
-            title: "What is a Brand?",
-            duration: "15m",
-            isCompleted: true,
-            content: "A brand is more than just a logo or visual identity. It's the entire experience that customers have with your company, product, or service. This includes visual elements, messaging, values, and the emotions your brand evokes.",
-            videoUrl: "https://example.com/video1.mp4",
-            section_title: "Introduction to Branding"
-          },
-          {
-            id: "l2",
-            title: "Brand vs Branding",
-            duration: "20m",
-            isCompleted: true,
-            content: "While a brand is the perception of your company, branding is the process of building and shaping that perception. Branding involves strategic decisions about positioning, messaging, visual identity, and customer experience.",
-            videoUrl: "https://example.com/video2.mp4",
-            section_title: "Introduction to Branding"
-          },
-          {
-            id: "l3",
-            title: "Why Branding Matters",
-            duration: "25m",
-            isCompleted: false,
-            content: "Strong branding builds recognition, trust, and loyalty. It differentiates you from competitors, commands premium pricing, and creates emotional connections with customers. Effective branding also provides internal benefits by guiding company culture and decision-making.",
-            videoUrl: "https://example.com/video3.mp4",
-            section_title: "Introduction to Branding"
-          }
-        ]
-      },
-      {
-        id: "s2",
-        title: "Brand Strategy Fundamentals",
-        duration: "3h 45m",
-        expanded: false,
-        lessons: [
-          {
-            id: "l4",
-            title: "Brand Purpose and Vision",
-            duration: "30m",
-            isCompleted: false,
-            content: "Your brand purpose is why your brand exists beyond making money. It's the positive impact you aim to have on customers and society. Your brand vision is what you aspire to achieve in the future. Together, they guide your brand's direction and decisions.",
-            videoUrl: "https://example.com/video4.mp4",
-            section_title: "Brand Strategy Fundamentals"
-          },
-          {
-            id: "l5",
-            title: "Target Audience and Personas",
-            duration: "45m",
-            isCompleted: false,
-            content: "Defining your target audience is crucial for effective branding. Create detailed buyer personas that include demographics, psychographics, behaviors, needs, and pain points. Understanding your audience deeply allows you to create more relevant and resonant brand experiences.",
-            videoUrl: "https://example.com/video5.mp4",
-            section_title: "Brand Strategy Fundamentals"
-          }
-        ]
-      }
-    ],
-    assignments: [
-      {
-        id: "a1",
-        title: "Brand Audit",
-        description: "Conduct a comprehensive audit of an existing brand of your choice. Analyze their visual identity, messaging, positioning, and customer experience. Identify strengths and areas for improvement.",
-        dueDate: "2023-05-15",
-        status: "pending"
-      },
-      {
-        id: "a2",
-        title: "Brand Strategy Document",
-        description: "Create a complete brand strategy document for a fictional company. Include purpose, vision, mission, values, positioning, messaging, and target audience personas.",
-        dueDate: "2023-06-01",
-        status: "pending"
-      }
-    ],
-    quizzes: [
-      {
-        id: "q1",
-        title: "Branding Fundamentals Quiz",
-        description: "Test your understanding of basic branding concepts and principles.",
-        timeLimit: 15,
-        questions: [
-          {
-            id: "q1-1",
-            question: "What is a brand?",
-            type: "multiple_choice",
-            options: [
-              "Just a logo and visual elements",
-              "The entire experience customers have with your company",
-              "A marketing campaign",
-              "A product or service"
-            ],
-            correctAnswer: "The entire experience customers have with your company"
-          },
-          {
-            id: "q1-2",
-            question: "Brand positioning is:",
-            type: "multiple_choice",
-            options: [
-              "Where your logo appears on marketing materials",
-              "How your brand is placed on store shelves",
-              "How your brand is perceived in relation to competitors",
-              "The physical location of your business"
-            ],
-            correctAnswer: "How your brand is perceived in relation to competitors"
-          }
-        ],
-        status: "not_started"
-      }
-    ]
-  },
-  {
-    id: "2",
-    title: "Digital Marketing Essentials",
-    category: "Marketing",
-    instructor: {
-      id: "102",
-      name: "Michael Brown",
-      role: "Marketing Director",
-      avatar: "/lovable-uploads/e98cd24b-ef7d-485c-b055-e522a1b42a50.png",
-    },
-    description: "Master the fundamentals of digital marketing including SEO, social media, and content strategy.",
-    thumbnail: "/lovable-uploads/225b2ac5-0ee7-49a0-ab7c-8110e42dc865.png",
-    rating: 4.6,
-    reviews: 189,
-    totalHours: 15,
-    enrolled: false,
-    status: "published" as const,
-    lastUpdated: "2023-03-20",
-    price: 59.99,
-    tags: ["digital marketing", "SEO", "social media"],
-    bgColor: "#E6E6FA",
-  },
-  {
-    id: "3",
-    title: "Product Photography Masterclass",
-    category: "Photography",
-    instructor: {
-      id: "103",
-      name: "Emma Rodriguez",
-      role: "Professional Photographer",
-      avatar: "/lovable-uploads/e98cd24b-ef7d-485c-b055-e522a1b42a50.png",
-    },
-    description: "Learn how to capture stunning product photos for your brand or clients using simple equipment.",
-    thumbnail: "/lovable-uploads/225b2ac5-0ee7-49a0-ab7c-8110e42dc865.png",
-    rating: 4.9,
-    reviews: 127,
-    totalHours: 8,
-    enrolled: false,
-    status: "draft" as const,
-    lastUpdated: "2023-05-02",
-    price: 39.99,
-    tags: ["photography", "product", "visual"],
-    bgColor: "#F0F8FF",
-  }
-];
-
-export const getCourses = () => {
-  return mockCourses;
-};
-
-export const getCourseById = (id: string) => {
-  return mockCourses.find(course => course.id === id);
-};
-
-export const getEnrolledCourses = () => {
-  return mockCourses.filter(course => course.enrolled);
-};
-
-export const getLessonById = (courseId: string, lessonId: string) => {
-  const course = getCourseById(courseId);
-  if (!course || !course.sections) return null;
-  
-  for (const section of course.sections) {
-    const lesson = section.lessons.find(lesson => lesson.id === lessonId);
-    if (lesson) return lesson;
-  }
-  
-  return null;
-};
-
-export const getNextLesson = (courseId: string, currentLessonId: string) => {
-  const course = getCourseById(courseId);
-  if (!course || !course.sections) return null;
-  
-  let foundCurrent = false;
-  
-  for (const section of course.sections) {
-    for (const lesson of section.lessons) {
-      if (foundCurrent) {
-        return lesson;
-      }
-      if (lesson.id === currentLessonId) {
-        foundCurrent = true;
-      }
+// Get all courses
+export const getCourses = async (): Promise<Course[]> => {
+  try {
+    const { data: coursesData, error } = await supabase
+      .from('courses')
+      .select(`
+        *,
+        category:course_categories(name),
+        instructor:instructors(*)
+      `)
+      .eq('status', 'published')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    if (!coursesData || coursesData.length === 0) {
+      return [];
     }
-  }
-  
-  return null;
-};
-
-export const getPreviousLesson = (courseId: string, currentLessonId: string) => {
-  const course = getCourseById(courseId);
-  if (!course || !course.sections) return null;
-  
-  let previousLesson = null;
-  
-  for (const section of course.sections) {
-    for (const lesson of section.lessons) {
-      if (lesson.id === currentLessonId) {
-        return previousLesson;
-      }
-      previousLesson = lesson;
-    }
-  }
-  
-  return null;
-};
-
-export const markLessonAsCompleted = (courseId: string, lessonId: string) => {
-  // In a real app, this would make an API call to update the database
-  console.log(`Marking lesson ${lessonId} as completed for course ${courseId}`);
-  return true;
-};
-
-export const getCourseSections = (courseId: string) => {
-  const course = getCourseById(courseId);
-  return course?.sections || [];
-};
-
-export const getFirstLesson = (courseId: string) => {
-  const course = getCourseById(courseId);
-  if (!course || !course.sections || course.sections.length === 0) return null;
-  
-  const firstSection = course.sections[0];
-  if (!firstSection.lessons || firstSection.lessons.length === 0) return null;
-  
-  return firstSection.lessons[0];
-};
-
-export const getUserNotes = async (userId: string, lessonId: string, courseId: string) => {
-  return await courseNotesService.getUserNotes(userId, lessonId, courseId);
-};
-
-export const saveUserNotes = async (userId: string, lessonId: string, courseId: string, content: string) => {
-  return await courseNotesService.updateUserNotes(userId, lessonId, courseId, content);
-};
-
-// Add the missing functions required by CourseDetail.tsx and CourseViewer.tsx
-export const markVideoAsWatched = (courseId: string, lessonId: string) => {
-  console.log(`Marking video ${lessonId} as watched for course ${courseId}`);
-  // In a real app, this would update a database
-  const course = getCourseById(courseId);
-  if (course && course.sections) {
-    course.sections.forEach(section => {
-      section.lessons.forEach(lesson => {
-        if (lesson.id === lessonId) {
-          lesson.isCompleted = true;
-        }
-      });
+    
+    const courses: Course[] = coursesData.map((course) => ({
+      id: course.id,
+      title: course.title,
+      description: course.description || "",
+      category: course.category?.name || "Uncategorized",
+      instructor: {
+        id: course.instructor?.id || "",
+        name: course.instructor?.name || "Unknown",
+        role: course.instructor?.role || "Instructor",
+        avatar: course.instructor?.avatar || "",
+      },
+      thumbnail: course.thumbnail || "",
+      rating: course.rating || 0,
+      reviews: course.reviews || 0,
+      totalHours: Number(course.total_hours) || 0,
+      status: course.status as 'published' | 'draft',
+      lastUpdated: course.updated_at,
+      price: course.price || 0,
+      tags: course.tags || [],
+      logo: course.logo || "",
+      bgColor: course.bg_color || "bg-blue-500",
+    }));
+    
+    return courses;
+  } catch (error) {
+    console.error("Error fetching courses:", error);
+    toast({
+      title: "Error fetching courses",
+      description: "Please try again later",
+      variant: "destructive",
     });
+    return [];
   }
-  return true;
 };
 
-export const isVideoWatched = (courseId: string, lessonId: string) => {
-  const course = getCourseById(courseId);
-  if (course && course.sections) {
-    for (const section of course.sections) {
-      for (const lesson of section.lessons) {
-        if (lesson.id === lessonId) {
-          return !!lesson.isCompleted;
-        }
-      }
+// Get courses that the current user is enrolled in
+export const getEnrolledCourses = async (): Promise<Course[]> => {
+  try {
+    // First, get the current user's ID
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return [];
     }
+    
+    // For now, we'll return a subset of all courses as "enrolled"
+    // In a real implementation, you would have an enrollments table to track this
+    const allCourses = await getCourses();
+    
+    // Simulate enrollment (in real app, fetch from enrollments table)
+    const enrolledCourses = allCourses.slice(0, 2).map(course => ({
+      ...course,
+      enrolled: true,
+      progress: Math.floor(Math.random() * 100),
+      hoursCompleted: Math.floor(course.totalHours * Math.random() * 10) / 10
+    }));
+    
+    return enrolledCourses;
+  } catch (error) {
+    console.error("Error fetching enrolled courses:", error);
+    toast({
+      title: "Error fetching your courses",
+      description: "Please try again later",
+      variant: "destructive",
+    });
+    return [];
   }
-  return false;
 };
 
-export const updateCourse = (course: Course) => {
-  const index = mockCourses.findIndex(c => c.id === course.id);
-  if (index !== -1) {
-    mockCourses[index] = course;
-  }
-  return true;
-};
-
-export const updateCourseSection = (courseId: string, section: CourseSection) => {
-  const course = getCourseById(courseId);
-  if (!course || !course.sections) return false;
-  
-  const sectionIndex = course.sections.findIndex(s => s.id === section.id);
-  if (sectionIndex !== -1) {
-    course.sections[sectionIndex] = section;
-  } else {
-    course.sections.push(section);
-  }
-  return true;
-};
-
-export const deleteCourseSection = (courseId: string, sectionId: string) => {
-  const course = getCourseById(courseId);
-  if (!course || !course.sections) return false;
-  
-  course.sections = course.sections.filter(s => s.id !== sectionId);
-  return true;
-};
-
-export const updateCourseLesson = (courseId: string, sectionId: string, lesson: CourseLesson) => {
-  const course = getCourseById(courseId);
-  if (!course || !course.sections) return false;
-  
-  const section = course.sections.find(s => s.id === sectionId);
-  if (!section || !section.lessons) return false;
-  
-  const lessonIndex = section.lessons.findIndex(l => l.id === lesson.id);
-  if (lessonIndex !== -1) {
-    section.lessons[lessonIndex] = lesson;
-  } else {
-    section.lessons.push(lesson);
-  }
-  return true;
-};
-
-export const deleteCourseLesson = (courseId: string, sectionId: string, lessonId: string) => {
-  const course = getCourseById(courseId);
-  if (!course || !course.sections) return false;
-  
-  const section = course.sections.find(s => s.id === sectionId);
-  if (!section || !section.lessons) return false;
-  
-  section.lessons = section.lessons.filter(l => l.id !== lessonId);
-  return true;
-};
-
-export const updateCourseAssignment = (courseId: string, assignment: any) => {
-  const course = getCourseById(courseId);
-  if (!course) return false;
-  
-  if (!course.assignments) {
-    course.assignments = [];
-  }
-  
-  const assignmentIndex = course.assignments.findIndex(a => a.id === assignment.id);
-  if (assignmentIndex !== -1) {
-    course.assignments[assignmentIndex] = assignment;
-  } else {
-    course.assignments.push(assignment);
-  }
-  return true;
-};
-
-export const deleteCourseAssignment = (courseId: string, assignmentId: string) => {
-  const course = getCourseById(courseId);
-  if (!course || !course.assignments) return false;
-  
-  course.assignments = course.assignments.filter(a => a.id !== assignmentId);
-  return true;
-};
-
-export const enrollInCourse = (courseId: string) => {
-  const course = getCourseById(courseId);
-  if (!course) return false;
-  
-  course.enrolled = true;
-  return true;
-};
-
-export const unenrollFromCourse = (courseId: string) => {
-  const course = getCourseById(courseId);
-  if (!course) return false;
-  
-  course.enrolled = false;
-  return true;
-};
-
-export const shareCourse = (courseId: string) => {
-  const url = `${window.location.origin}/courses/${courseId}`;
-  navigator.clipboard.writeText(url).catch(err => {
-    console.error('Failed to copy course URL:', err);
-  });
-  return true;
-};
-
-export const getAdminStats = () => {
-  return {
-    totalCourses: mockCourses.length,
-    publishedCourses: mockCourses.filter(c => c.status === 'published').length,
-    draftCourses: mockCourses.filter(c => c.status === 'draft').length,
-    totalLessons: mockCourses.reduce((count, course) => 
-      count + (course.sections?.reduce((sCount, section) => 
-        sCount + (section.lessons?.length || 0), 0) || 0), 0),
-    totalStudents: 239,
-    activeLearners: 156,
-    totalRevenue: 12580,
-    recentSales: 2340
-  };
-};
-
+// Filter and sort courses based on search query, category, etc.
 export const filterAndSortCourses = (
-  courses: Course[], 
-  searchQuery: string, 
-  category: string, 
-  sortBy: string
-) => {
-  let filtered = [...courses];
-  
+  courses: Course[],
+  searchQuery: string = "",
+  category: string = "All Categories",
+  sortBy: string = "Most Popular"
+): Course[] => {
   // Filter by search query
-  if (searchQuery.trim() !== '') {
-    const query = searchQuery.toLowerCase();
-    filtered = filtered.filter(course => 
-      course.title.toLowerCase().includes(query) || 
-      course.description?.toLowerCase().includes(query) ||
-      course.tags?.some(tag => tag.toLowerCase().includes(query))
+  let filteredCourses = courses;
+  
+  if (searchQuery) {
+    searchQuery = searchQuery.toLowerCase();
+    filteredCourses = filteredCourses.filter(
+      course => course.title.toLowerCase().includes(searchQuery) ||
+              course.description.toLowerCase().includes(searchQuery)
     );
   }
   
   // Filter by category
-  if (category !== 'All Categories') {
-    filtered = filtered.filter(course => course.category === category);
+  if (category !== "All Categories") {
+    filteredCourses = filteredCourses.filter(
+      course => course.category === category
+    );
   }
   
   // Sort courses
   switch (sortBy) {
-    case 'Most Popular':
-      filtered.sort((a, b) => (b.reviews || 0) - (a.reviews || 0));
+    case "Most Popular":
+      filteredCourses.sort((a, b) => (b.reviews || 0) - (a.reviews || 0));
       break;
-    case 'Highest Rated':
-      filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    case "Highest Rated":
+      filteredCourses.sort((a, b) => (b.rating || 0) - (a.rating || 0));
       break;
-    case 'Newest':
-      filtered.sort((a, b) => new Date(b.lastUpdated || '').getTime() - new Date(a.lastUpdated || '').getTime());
+    case "Newest":
+      filteredCourses.sort((a, b) => {
+        return new Date(b.lastUpdated || "").getTime() - new Date(a.lastUpdated || "").getTime();
+      });
       break;
-    case 'Oldest':
-      filtered.sort((a, b) => new Date(a.lastUpdated || '').getTime() - new Date(b.lastUpdated || '').getTime());
+    case "Oldest":
+      filteredCourses.sort((a, b) => {
+        return new Date(a.lastUpdated || "").getTime() - new Date(b.lastUpdated || "").getTime();
+      });
       break;
-    case 'Price Low to High':
-      filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
+    case "Price Low to High":
+      filteredCourses.sort((a, b) => (a.price || 0) - (b.price || 0));
       break;
-    case 'Price High to Low':
-      filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
+    case "Price High to Low":
+      filteredCourses.sort((a, b) => (b.price || 0) - (a.price || 0));
       break;
     default:
       break;
   }
   
-  return filtered;
+  return filteredCourses;
 };
 
-export const getAllCategories = () => {
-  const categoriesSet = new Set(['All Categories']);
-  mockCourses.forEach(course => {
-    if (course.category) {
-      categoriesSet.add(course.category);
+// Get all categories
+export const getAllCategories = async (): Promise<string[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('course_categories')
+      .select('name');
+    
+    if (error) throw error;
+    
+    if (!data || data.length === 0) {
+      return ["All Categories"];
     }
-  });
-  return Array.from(categoriesSet);
+    
+    return ["All Categories", ...data.map(category => category.name)];
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    return ["All Categories"];
+  }
 };
 
-export const getRecentCourses = () => {
-  return mockCourses.slice(0, 3);
+// Get admin stats
+export const getAdminStats = async () => {
+  try {
+    // Get courses count stats
+    const { data: coursesData, error: coursesError } = await supabase
+      .from('courses')
+      .select('status')
+      .order('created_at', { ascending: false });
+    
+    if (coursesError) throw coursesError;
+    
+    const totalCourses = coursesData ? coursesData.length : 0;
+    const publishedCourses = coursesData ? coursesData.filter(c => c.status === 'published').length : 0;
+    const draftCourses = coursesData ? coursesData.filter(c => c.status === 'draft').length : 0;
+    
+    // Get lessons count
+    const { count: lessonsCount, error: lessonsError } = await supabase
+      .from('course_lessons')
+      .select('id', { count: 'exact', head: true });
+    
+    if (lessonsError) throw lessonsError;
+    
+    // Get students count (for demo, all non-admin users)
+    const { data: usersWithRoles, error: usersError } = await supabase
+      .from('users_with_roles')
+      .select('*');
+    
+    if (usersError) throw usersError;
+    
+    const totalStudents = usersWithRoles ? 
+      usersWithRoles.filter(u => !u.roles?.includes('admin')).length : 0;
+    
+    return {
+      totalCourses,
+      publishedCourses,
+      draftCourses,
+      totalLessons: lessonsCount || 0,
+      totalStudents,
+      // These could come from additional queries in a real app
+      activeLearners: Math.round(totalStudents * 0.6),
+      recentSales: 12,
+    };
+  } catch (error) {
+    console.error("Error fetching admin stats:", error);
+    return {
+      totalCourses: 0,
+      publishedCourses: 0,
+      draftCourses: 0,
+      totalLessons: 0,
+      totalStudents: 0
+    };
+  }
+};
+
+// Get course details by ID
+export const getCourseById = async (id: string): Promise<Course | null> => {
+  try {
+    const { data: courseData, error } = await supabase
+      .from('courses')
+      .select(`
+        *,
+        category:course_categories(name),
+        instructor:instructors(*),
+        sections:course_sections(
+          *,
+          lessons:course_lessons(*)
+        )
+      `)
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    
+    if (!courseData) {
+      return null;
+    }
+    
+    const course: Course = {
+      id: courseData.id,
+      title: courseData.title,
+      description: courseData.description || "",
+      category: courseData.category?.name || "Uncategorized",
+      instructor: {
+        id: courseData.instructor?.id || "",
+        name: courseData.instructor?.name || "Unknown",
+        role: courseData.instructor?.role || "Instructor",
+        avatar: courseData.instructor?.avatar || "",
+      },
+      thumbnail: courseData.thumbnail || "",
+      rating: courseData.rating || 0,
+      reviews: courseData.reviews || 0,
+      totalHours: Number(courseData.total_hours) || 0,
+      status: courseData.status as 'published' | 'draft',
+      lastUpdated: courseData.updated_at,
+      price: courseData.price || 0,
+      tags: courseData.tags || [],
+      logo: courseData.logo || "",
+      bgColor: courseData.bg_color || "bg-blue-500",
+      sections: courseData.sections?.map(section => ({
+        id: section.id,
+        title: section.title,
+        duration: section.duration || "",
+        lessons: section.lessons?.map(lesson => ({
+          id: lesson.id,
+          title: lesson.title,
+          duration: lesson.duration || "",
+          content: lesson.content || "",
+          videoUrl: lesson.video_url || "",
+          section_title: section.title
+        })) || []
+      })) || []
+    };
+    
+    return course;
+  } catch (error) {
+    console.error(`Error fetching course with ID ${id}:`, error);
+    toast({
+      title: "Error fetching course",
+      description: "Please try again later",
+      variant: "destructive",
+    });
+    return null;
+  }
 };

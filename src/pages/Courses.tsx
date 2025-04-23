@@ -4,9 +4,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, ChevronDown, Grid, List } from "lucide-react";
+import { Search, Filter, ChevronDown, Grid, List, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Link, Routes, Route, useNavigate } from "react-router-dom";
+import { Link, Routes, Route, useNavigate, useSearchParams } from "react-router-dom";
 import CourseDetail from "./CourseDetail";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,15 +22,21 @@ import {
   getEnrolledCourses
 } from "@/components/courses/CourseService";
 import { Course } from "@/types/course";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const CoursesArchive = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "enrolled";
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [selectedSort, setSelectedSort] = useState("Most Popular");
-  const [categories, setCategories] = useState<string[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [categories, setCategories] = useState<string[]>(["All Categories"]);
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const sortOptions = [
     "Most Popular",
@@ -42,28 +48,69 @@ const CoursesArchive = () => {
   ];
 
   useEffect(() => {
-    // Load all courses and categories
-    const allCourses = getCourses();
-    setCourses(allCourses);
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Load all courses and categories
+        const coursesList = await getCourses();
+        setAllCourses(coursesList);
+        
+        // Get enrolled courses
+        const userEnrolledCourses = await getEnrolledCourses();
+        setEnrolledCourses(userEnrolledCourses);
+        
+        // Get all categories
+        const categoriesList = await getAllCategories();
+        setCategories(categoriesList);
+      } catch (err) {
+        console.error("Error fetching courses data:", err);
+        setError("Failed to load courses");
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    // Get enrolled courses
-    const userEnrolledCourses = getEnrolledCourses();
-    setEnrolledCourses(userEnrolledCourses);
-    
-    // Get all categories
-    setCategories(getAllCategories());
+    fetchData();
   }, []);
   
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    setSearchParams({ tab: value });
+  };
+
   // Filter and sort the courses based on current criteria
   const filteredCourses = filterAndSortCourses(
-    courses, 
+    allCourses, 
     searchQuery, 
     selectedCategory, 
     selectedSort
   );
   
   // Separate enrolled from available courses
-  const availableCourses = filteredCourses.filter(course => !course.enrolled);
+  const availableCourses = filteredCourses.filter(course => 
+    !enrolledCourses.some(enrolledCourse => enrolledCourse.id === course.id)
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin mb-4" />
+        <p className="text-muted-foreground">Loading courses...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <EmptyState
+        title="Failed to load courses"
+        description={error}
+        actionLabel="Try again"
+        onAction={() => window.location.reload()}
+      />
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -143,7 +190,11 @@ const CoursesArchive = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="enrolled" className="w-full">
+      <Tabs 
+        value={activeTab} 
+        className="w-full"
+        onValueChange={handleTabChange}
+      >
         <TabsList className="mb-6">
           <TabsTrigger value="enrolled">My Courses</TabsTrigger>
           <TabsTrigger value="all">Course Archive</TabsTrigger>
@@ -157,7 +208,7 @@ const CoursesArchive = () => {
                   <div className="p-6">
                     <div className="flex items-center gap-3 mb-4">
                       <div className={`${course.bgColor} text-white h-10 w-10 rounded-md flex items-center justify-center font-bold`}>
-                        {course.logo}
+                        {course.logo || course.title.substring(0, 1)}
                       </div>
                       <span className="text-sm text-muted-foreground">{course.category}</span>
                     </div>
@@ -174,7 +225,7 @@ const CoursesArchive = () => {
                       <span className="text-sm font-medium">{course.progress || 0}%</span>
                     </div>
                     
-                    <Link to={`/courses/${course.id}`}>
+                    <Link to={`/course/${course.id}`}>
                       <Button variant="default" className="w-full mt-4">
                         Continue
                       </Button>
@@ -183,11 +234,13 @@ const CoursesArchive = () => {
                 </Card>
               ))
             ) : (
-              <div className="col-span-3 text-center py-12">
-                <p className="text-muted-foreground">You haven't enrolled in any courses yet.</p>
-                <Button variant="outline" className="mt-4" asChild>
-                  <Link to="/courses?tab=all">Browse Courses</Link>
-                </Button>
+              <div className="col-span-3">
+                <EmptyState
+                  title="No enrolled courses"
+                  description="You haven't enrolled in any courses yet."
+                  actionLabel="Browse Courses"
+                  actionHref="/courses?tab=all"
+                />
               </div>
             )}
           </div>
@@ -202,7 +255,7 @@ const CoursesArchive = () => {
                     <div className="p-6">
                       <div className="flex items-center gap-3 mb-4">
                         <div className={`${course.bgColor} text-white h-10 w-10 rounded-md flex items-center justify-center font-bold`}>
-                          {course.logo}
+                          {course.logo || course.title.substring(0, 1)}
                         </div>
                         <span className="text-sm text-muted-foreground">{course.category}</span>
                       </div>
@@ -220,7 +273,7 @@ const CoursesArchive = () => {
                       <p className="text-sm text-muted-foreground mb-4">Instructor: {course.instructor.name}</p>
                       <p className="text-sm text-muted-foreground mb-4">Duration: {course.totalHours} hours</p>
                       
-                      <Link to={`/courses/${course.id}`}>
+                      <Link to={`/course/${course.id}`}>
                         <Button variant="outline" className="w-full mt-4">
                           View Course
                         </Button>
@@ -235,7 +288,7 @@ const CoursesArchive = () => {
                   <Card key={course.id} className="overflow-hidden">
                     <div className="p-4 flex items-center">
                       <div className={`${course.bgColor} text-white h-16 w-16 rounded-md flex items-center justify-center font-bold mr-4`}>
-                        {course.logo}
+                        {course.logo || course.title.substring(0, 1)}
                       </div>
                       
                       <div className="flex-1">
@@ -259,7 +312,7 @@ const CoursesArchive = () => {
                         </div>
                       </div>
                       
-                      <Link to={`/courses/${course.id}`} className="ml-4">
+                      <Link to={`/course/${course.id}`} className="ml-4">
                         <Button>View Course</Button>
                       </Link>
                     </div>
@@ -268,15 +321,15 @@ const CoursesArchive = () => {
               </div>
             )
           ) : (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No courses found matching your search criteria.</p>
-              <Button variant="outline" className="mt-4" onClick={() => {
+            <EmptyState
+              title="No courses found"
+              description="No courses match your search criteria."
+              actionLabel="Clear Filters"
+              onAction={() => {
                 setSearchQuery("");
                 setSelectedCategory("All Categories");
-              }}>
-                Clear Filters
-              </Button>
-            </div>
+              }}
+            />
           )}
         </TabsContent>
       </Tabs>

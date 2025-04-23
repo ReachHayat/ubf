@@ -3,12 +3,12 @@ import {
   LayoutDashboard, 
   BookOpen, 
   FileCheck, 
-  MessageSquare, 
   Settings,
   ChevronLeft,
   ChevronRight,
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
@@ -20,7 +20,6 @@ const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: BookOpen, label: "Courses", path: "/courses" },
   { icon: FileCheck, label: "Assignments", path: "/assignments" },
-  { icon: MessageSquare, label: "Community", path: "/community" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 
@@ -113,6 +112,24 @@ const Sidebar = ({ collapsed = false, onToggle }: SidebarProps) => {
                 </li>
               );
             })}
+            
+            {/* Profile link */}
+            <li>
+              <Link
+                to="/profile"
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200",
+                  "hover:bg-accent/50",
+                  location.pathname === "/profile"
+                    ? "bg-accent text-accent-foreground" 
+                    : "text-muted-foreground",
+                  collapsed && "justify-center px-2"
+                )}
+              >
+                <User className="h-5 w-5" />
+                {!collapsed && <span>Profile</span>}
+              </Link>
+            </li>
             
             {isAdmin() && (
               <li>

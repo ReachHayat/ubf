@@ -8,6 +8,11 @@ import CourseContent from "@/pages/CourseContent";
 import { AuthProvider } from '@/contexts/AuthContext';
 import Auth from '@/pages/Auth';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import Profile from '@/pages/Profile';
+import Settings from '@/pages/Settings';
+import Assignments from '@/pages/Assignments';
+import Admin from '@/pages/Admin';
+import Lessons from '@/pages/Lessons';
 
 const App = () => {
   return (
@@ -21,7 +26,15 @@ const App = () => {
               <Route path="/" element={<Home />} />
               <Route path="/courses" element={<Courses />} />
               <Route path="/course/:courseId/:lessonId?" element={<CourseContent />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/assignments" element={<Assignments />} />
+              <Route path="/lessons" element={<Lessons />} />
             </Route>
+          </Route>
+          
+          <Route element={<ProtectedRoute requiredRole="admin" />}>
+            <Route path="/admin/*" element={<Admin />} />
           </Route>
         </Routes>
       </AuthProvider>
