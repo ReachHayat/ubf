@@ -11,8 +11,8 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 
 const App = () => {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <Routes>
           <Route path="/auth" element={<Auth />} />
           
@@ -24,8 +24,8 @@ const App = () => {
             </Route>
           </Route>
         </Routes>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 };
 
