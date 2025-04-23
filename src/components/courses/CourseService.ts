@@ -1,3 +1,4 @@
+
 // Import statements
 import { Course, CourseSection, CourseLesson } from '@/types/course';
 import { bookmarkService } from '@/services/bookmarkService';
@@ -280,10 +281,150 @@ export const saveUserNotes = async (userId: string, lessonId: string, courseId: 
   return await courseNotesService.updateUserNotes(userId, lessonId, courseId, content);
 };
 
+// Add the missing functions required by CourseDetail.tsx and CourseViewer.tsx
+export const markVideoAsWatched = (courseId: string, lessonId: string) => {
+  console.log(`Marking video ${lessonId} as watched for course ${courseId}`);
+  // In a real app, this would update a database
+  const course = getCourseById(courseId);
+  if (course && course.sections) {
+    course.sections.forEach(section => {
+      section.lessons.forEach(lesson => {
+        if (lesson.id === lessonId) {
+          lesson.isCompleted = true;
+        }
+      });
+    });
+  }
+  return true;
+};
+
+export const isVideoWatched = (courseId: string, lessonId: string) => {
+  const course = getCourseById(courseId);
+  if (course && course.sections) {
+    for (const section of course.sections) {
+      for (const lesson of section.lessons) {
+        if (lesson.id === lessonId) {
+          return !!lesson.isCompleted;
+        }
+      }
+    }
+  }
+  return false;
+};
+
+export const updateCourse = (course: Course) => {
+  const index = mockCourses.findIndex(c => c.id === course.id);
+  if (index !== -1) {
+    mockCourses[index] = course;
+  }
+  return true;
+};
+
+export const updateCourseSection = (courseId: string, section: CourseSection) => {
+  const course = getCourseById(courseId);
+  if (!course || !course.sections) return false;
+  
+  const sectionIndex = course.sections.findIndex(s => s.id === section.id);
+  if (sectionIndex !== -1) {
+    course.sections[sectionIndex] = section;
+  } else {
+    course.sections.push(section);
+  }
+  return true;
+};
+
+export const deleteCourseSection = (courseId: string, sectionId: string) => {
+  const course = getCourseById(courseId);
+  if (!course || !course.sections) return false;
+  
+  course.sections = course.sections.filter(s => s.id !== sectionId);
+  return true;
+};
+
+export const updateCourseLesson = (courseId: string, sectionId: string, lesson: CourseLesson) => {
+  const course = getCourseById(courseId);
+  if (!course || !course.sections) return false;
+  
+  const section = course.sections.find(s => s.id === sectionId);
+  if (!section || !section.lessons) return false;
+  
+  const lessonIndex = section.lessons.findIndex(l => l.id === lesson.id);
+  if (lessonIndex !== -1) {
+    section.lessons[lessonIndex] = lesson;
+  } else {
+    section.lessons.push(lesson);
+  }
+  return true;
+};
+
+export const deleteCourseLesson = (courseId: string, sectionId: string, lessonId: string) => {
+  const course = getCourseById(courseId);
+  if (!course || !course.sections) return false;
+  
+  const section = course.sections.find(s => s.id === sectionId);
+  if (!section || !section.lessons) return false;
+  
+  section.lessons = section.lessons.filter(l => l.id !== lessonId);
+  return true;
+};
+
+export const updateCourseAssignment = (courseId: string, assignment: any) => {
+  const course = getCourseById(courseId);
+  if (!course) return false;
+  
+  if (!course.assignments) {
+    course.assignments = [];
+  }
+  
+  const assignmentIndex = course.assignments.findIndex(a => a.id === assignment.id);
+  if (assignmentIndex !== -1) {
+    course.assignments[assignmentIndex] = assignment;
+  } else {
+    course.assignments.push(assignment);
+  }
+  return true;
+};
+
+export const deleteCourseAssignment = (courseId: string, assignmentId: string) => {
+  const course = getCourseById(courseId);
+  if (!course || !course.assignments) return false;
+  
+  course.assignments = course.assignments.filter(a => a.id !== assignmentId);
+  return true;
+};
+
+export const enrollInCourse = (courseId: string) => {
+  const course = getCourseById(courseId);
+  if (!course) return false;
+  
+  course.enrolled = true;
+  return true;
+};
+
+export const unenrollFromCourse = (courseId: string) => {
+  const course = getCourseById(courseId);
+  if (!course) return false;
+  
+  course.enrolled = false;
+  return true;
+};
+
+export const shareCourse = (courseId: string) => {
+  const url = `${window.location.origin}/courses/${courseId}`;
+  navigator.clipboard.writeText(url).catch(err => {
+    console.error('Failed to copy course URL:', err);
+  });
+  return true;
+};
+
 export const getAdminStats = () => {
   return {
     totalCourses: mockCourses.length,
     publishedCourses: mockCourses.filter(c => c.status === 'published').length,
+    draftCourses: mockCourses.filter(c => c.status === 'draft').length,
+    totalLessons: mockCourses.reduce((count, course) => 
+      count + (course.sections?.reduce((sCount, section) => 
+        sCount + (section.lessons?.length || 0), 0) || 0), 0),
     totalStudents: 239,
     activeLearners: 156,
     totalRevenue: 12580,
@@ -291,14 +432,64 @@ export const getAdminStats = () => {
   };
 };
 
-export const updateCourseAssignment = (courseId: string, assignmentId: string, data: any) => {
-  console.log(`Updating assignment ${assignmentId} in course ${courseId}`);
-  return true;
+export const filterAndSortCourses = (
+  courses: Course[], 
+  searchQuery: string, 
+  category: string, 
+  sortBy: string
+) => {
+  let filtered = [...courses];
+  
+  // Filter by search query
+  if (searchQuery.trim() !== '') {
+    const query = searchQuery.toLowerCase();
+    filtered = filtered.filter(course => 
+      course.title.toLowerCase().includes(query) || 
+      course.description?.toLowerCase().includes(query) ||
+      course.tags?.some(tag => tag.toLowerCase().includes(query))
+    );
+  }
+  
+  // Filter by category
+  if (category !== 'All Categories') {
+    filtered = filtered.filter(course => course.category === category);
+  }
+  
+  // Sort courses
+  switch (sortBy) {
+    case 'Most Popular':
+      filtered.sort((a, b) => (b.reviews || 0) - (a.reviews || 0));
+      break;
+    case 'Highest Rated':
+      filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      break;
+    case 'Newest':
+      filtered.sort((a, b) => new Date(b.lastUpdated || '').getTime() - new Date(a.lastUpdated || '').getTime());
+      break;
+    case 'Oldest':
+      filtered.sort((a, b) => new Date(a.lastUpdated || '').getTime() - new Date(b.lastUpdated || '').getTime());
+      break;
+    case 'Price Low to High':
+      filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
+      break;
+    case 'Price High to Low':
+      filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
+      break;
+    default:
+      break;
+  }
+  
+  return filtered;
 };
 
-export const deleteCourseAssignment = (courseId: string, assignmentId: string) => {
-  console.log(`Deleting assignment ${assignmentId} from course ${courseId}`);
-  return true;
+export const getAllCategories = () => {
+  const categoriesSet = new Set(['All Categories']);
+  mockCourses.forEach(course => {
+    if (course.category) {
+      categoriesSet.add(course.category);
+    }
+  });
+  return Array.from(categoriesSet);
 };
 
 export const getRecentCourses = () => {

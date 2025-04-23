@@ -1,9 +1,21 @@
 
 import { useState } from 'react';
 import { useBookmarks } from '@/hooks/useBookmarks';
+import { BookmarkItem } from '@/types/course';
 
-// Mock forum data types
-interface ForumPost {
+// Forum types
+export interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  user?: {
+    id: string;
+    full_name: string;
+  };
+  approved: boolean;
+}
+
+export interface Post {
   id: string;
   title: string;
   content: string;
@@ -12,19 +24,39 @@ interface ForumPost {
     name: string;
     avatar: string;
   };
-  createdAt: string;
+  created_at: string;
   likes: number;
-  comments: number;
+  comments: Comment[] | null;
   tags: string[];
+  user?: {
+    id: string;
+    full_name: string;
+    name: string;
+  };
+  approved: boolean;
+  category?: {
+    id: string;
+    name: string;
+  };
+  media?: Array<{
+    type: string;
+    url: string;
+  }>;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  description?: string;
 }
 
 export const useForum = () => {
-  const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
   const { toggleBookmark, isBookmarked } = useBookmarks();
   
   // Function to handle bookmarking a forum post
-  const bookmarkPost = async (post: ForumPost) => {
+  const bookmarkPost = async (post: Post) => {
     try {
       await toggleBookmark(
         post.id, 
