@@ -1,666 +1,306 @@
-import { Course, CourseSection, CourseLesson, CourseAssignment, CourseQuiz } from "@/types/course";
-import { supabase } from "@/integrations/supabase/client";
+// Import statements
+import { Course, CourseSection, CourseLesson } from '@/types/course';
+import { bookmarkService } from '@/services/bookmarkService';
+import { courseNotesService } from '@/services/courseNotesService';
 
-// Local storage keys
-const COURSES_STORAGE_KEY = "ubf_courses";
-const ENROLLED_COURSES_KEY = "ubf_enrolled_courses";
-const WATCHED_VIDEOS_KEY = "ubf_watched_videos";
-
-// Get courses from localStorage or return default
-export const getCourses = (): Course[] => {
-  const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-  return storedCourses ? JSON.parse(storedCourses) : mockCourses;
-};
-
-// Save courses to localStorage
-export const saveCourses = (courses: Course[]): void => {
-  const validatedCourses = courses.map(course => {
-    return {
-      ...course,
-      status: course.status === 'published' || course.status === 'draft' 
-        ? course.status 
-        : 'draft' as 'published' | 'draft'
-    };
-  });
-  localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(validatedCourses));
-};
-
-// Get course by ID
-export const getCourseById = (id: string): Course | undefined => {
-  const courses = getCourses();
-  return courses.find(course => course.id === id);
-};
-
-// Filter and sort courses
-export const filterAndSortCourses = (
-  courses: Course[],
-  searchQuery: string = "",
-  category: string = "All Categories",
-  sortOption: string = "Most Popular"
-): Course[] => {
-  let filteredCourses = [...courses];
-  
-  // Filter by search query
-  if (searchQuery) {
-    filteredCourses = filteredCourses.filter(course => 
-      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.instructor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.category.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }
-  
-  // Filter by category
-  if (category !== "All Categories") {
-    filteredCourses = filteredCourses.filter(course => course.category === category);
-  }
-  
-  // Sort courses
-  switch (sortOption) {
-    case "Most Popular":
-      filteredCourses.sort((a, b) => (b.reviews || 0) - (a.reviews || 0));
-      break;
-    case "Highest Rated":
-      filteredCourses.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-      break;
-    case "Newest":
-      filteredCourses.sort((a, b) => {
-        const dateA = a.lastUpdated ? new Date(a.lastUpdated) : new Date(0);
-        const dateB = b.lastUpdated ? new Date(b.lastUpdated) : new Date(0);
-        return dateB.getTime() - dateA.getTime();
-      });
-      break;
-    case "Oldest":
-      filteredCourses.sort((a, b) => {
-        const dateA = a.lastUpdated ? new Date(a.lastUpdated) : new Date(0);
-        const dateB = b.lastUpdated ? new Date(b.lastUpdated) : new Date(0);
-        return dateA.getTime() - dateB.getTime();
-      });
-      break;
-    case "Price Low to High":
-      filteredCourses.sort((a, b) => (a.price || 0) - (b.price || 0));
-      break;
-    case "Price High to Low":
-      filteredCourses.sort((a, b) => (b.price || 0) - (a.price || 0));
-      break;
-  }
-  
-  return filteredCourses;
-};
-
-// Get all available categories
-export const getAllCategories = (): string[] => {
-  const courses = getCourses();
-  const categories = ["All Categories", ...new Set(courses.map(course => course.category))];
-  return categories;
-};
-
-// Update course by ID
-export const updateCourse = (updatedCourse: Course): void => {
-  const courses = getCourses();
-  const index = courses.findIndex(course => course.id === updatedCourse.id);
-  
-  if (index !== -1) {
-    courses[index] = updatedCourse;
-    saveCourses(courses);
-  }
-};
-
-// Add new course
-export const addCourse = (course: Course): Course => {
-  const courses = getCourses();
-  const newCourse = {
-    ...course,
-    id: course.id || Math.random().toString(36).substring(2, 9),
-    lastUpdated: new Date().toISOString().split('T')[0]
-  };
-  
-  courses.push(newCourse);
-  saveCourses(courses);
-  return newCourse;
-};
-
-// Delete course by ID
-export const deleteCourse = (id: string): void => {
-  const courses = getCourses();
-  const filteredCourses = courses.filter(course => course.id !== id);
-  saveCourses(filteredCourses);
-  
-  // Also remove from enrolled courses if present
-  const enrolledIds = getEnrolledCourseIds();
-  if (enrolledIds.includes(id)) {
-    setEnrolledCourseIds(enrolledIds.filter(courseId => courseId !== id));
-  }
-};
-
-// Get enrolled course IDs
-export const getEnrolledCourseIds = (): string[] => {
-  const storedIds = localStorage.getItem(ENROLLED_COURSES_KEY);
-  return storedIds ? JSON.parse(storedIds) : [];
-};
-
-// Set enrolled course IDs
-export const setEnrolledCourseIds = (ids: string[]): void => {
-  localStorage.setItem(ENROLLED_COURSES_KEY, JSON.stringify(ids));
-};
-
-// Get enrolled courses
-export const getEnrolledCourses = (): Course[] => {
-  const enrolledIds = getEnrolledCourseIds();
-  const allCourses = getCourses();
-  return allCourses.filter(course => enrolledIds.includes(course.id));
-};
-
-// Track watched videos
-export const markVideoAsWatched = (courseId: string, lessonId: string): void => {
-  const watchedVideos = getWatchedVideos();
-  if (!watchedVideos[courseId]) {
-    watchedVideos[courseId] = [];
-  }
-  
-  if (!watchedVideos[courseId].includes(lessonId)) {
-    watchedVideos[courseId].push(lessonId);
-    setWatchedVideos(watchedVideos);
-    
-    // Update course progress
-    const course = getCourseById(courseId);
-    if (course && course.sections) {
-      let totalLessons = 0;
-      let completedLessons = 0;
-      
-      course.sections.forEach(section => {
-        section.lessons.forEach(lesson => {
-          totalLessons++;
-          if (watchedVideos[courseId].includes(lesson.id)) {
-            completedLessons++;
-            // Update lesson completion status
-            lesson.isCompleted = true;
-          }
-        });
-      });
-      
-      const progress = Math.round((completedLessons / totalLessons) * 100);
-      
-      updateCourse({
-        ...course,
-        progress,
-        hoursCompleted: (course.totalHours * progress) / 100
-      });
-    }
-  }
-};
-
-// Check if video is watched
-export const isVideoWatched = (courseId: string, lessonId: string): boolean => {
-  const watchedVideos = getWatchedVideos();
-  return watchedVideos[courseId] && watchedVideos[courseId].includes(lessonId);
-};
-
-// Get all watched videos
-export const getWatchedVideos = (): Record<string, string[]> => {
-  const storedVideos = localStorage.getItem(WATCHED_VIDEOS_KEY);
-  return storedVideos ? JSON.parse(storedVideos) : {};
-};
-
-// Set watched videos
-export const setWatchedVideos = (videos: Record<string, string[]>): void => {
-  localStorage.setItem(WATCHED_VIDEOS_KEY, JSON.stringify(videos));
-};
-
-// Enroll in a course
-export const enrollInCourse = (courseId: string): void => {
-  const enrolledIds = getEnrolledCourseIds();
-  if (!enrolledIds.includes(courseId)) {
-    enrolledIds.push(courseId);
-    setEnrolledCourseIds(enrolledIds);
-    
-    // Update the course to mark it as enrolled
-    const course = getCourseById(courseId);
-    if (course) {
-      updateCourse({
-        ...course,
-        enrolled: true,
-        progress: 0,
-        hoursCompleted: 0
-      });
-    }
-  }
-};
-
-// Unenroll from a course
-export const unenrollFromCourse = (courseId: string): void => {
-  const enrolledIds = getEnrolledCourseIds();
-  setEnrolledCourseIds(enrolledIds.filter(id => id !== courseId));
-  
-  // Update the course to mark it as not enrolled
-  const course = getCourseById(courseId);
-  if (course) {
-    const { enrolled, progress, hoursCompleted, ...courseWithoutEnrollmentData } = course;
-    updateCourse({
-      ...courseWithoutEnrollmentData,
-      enrolled: false
-    });
-  }
-};
-
-// Share course
-export const shareCourse = (courseId: string): void => {
-  const url = `${window.location.origin}/courses/${courseId}`;
-  navigator.clipboard.writeText(url)
-    .catch(err => console.error('Could not copy URL: ', err));
-};
-
-// Update course section
-export const updateCourseSection = (courseId: string, section: CourseSection): void => {
-  const course = getCourseById(courseId);
-  if (course && course.sections) {
-    const index = course.sections.findIndex(s => s.id === section.id);
-    
-    if (index !== -1) {
-      // Update existing section
-      course.sections[index] = section;
-    } else {
-      // Add new section
-      course.sections.push(section);
-    }
-    
-    updateCourse(course);
-  }
-};
-
-// Delete course section
-export const deleteCourseSection = (courseId: string, sectionId: string): void => {
-  const course = getCourseById(courseId);
-  if (course && course.sections) {
-    course.sections = course.sections.filter(section => section.id !== sectionId);
-    updateCourse(course);
-  }
-};
-
-// Update course lesson
-export const updateCourseLesson = (
-  courseId: string, 
-  sectionId: string, 
-  lesson: CourseLesson
-): void => {
-  const course = getCourseById(courseId);
-  if (course && course.sections) {
-    const sectionIndex = course.sections.findIndex(s => s.id === sectionId);
-    
-    if (sectionIndex !== -1) {
-      const lessonIndex = course.sections[sectionIndex].lessons.findIndex(l => l.id === lesson.id);
-      
-      if (lessonIndex !== -1) {
-        // Update existing lesson
-        course.sections[sectionIndex].lessons[lessonIndex] = lesson;
-      } else {
-        // Add new lesson
-        course.sections[sectionIndex].lessons.push(lesson);
-      }
-      
-      updateCourse(course);
-    }
-  }
-};
-
-// Delete course lesson
-export const deleteCourseLesson = (
-  courseId: string, 
-  sectionId: string, 
-  lessonId: string
-): void => {
-  const course = getCourseById(courseId);
-  if (course && course.sections) {
-    const sectionIndex = course.sections.findIndex(s => s.id === sectionId);
-    
-    if (sectionIndex !== -1) {
-      course.sections[sectionIndex].lessons = course.sections[sectionIndex].lessons.filter(
-        lesson => lesson.id !== lessonId
-      );
-      
-      updateCourse(course);
-    }
-  }
-};
-
-// Add course assignment
-export const updateCourseAssignment = (courseId: string, assignment: CourseAssignment): void => {
-  const course = getCourseById(courseId);
-  if (course) {
-    if (!course.assignments) {
-      course.assignments = [];
-    }
-    
-    const index = course.assignments.findIndex(a => a.id === assignment.id);
-    
-    if (index !== -1) {
-      course.assignments[index] = assignment;
-    } else {
-      course.assignments.push(assignment);
-    }
-    
-    updateCourse(course);
-  }
-};
-
-// Delete course assignment
-export const deleteCourseAssignment = (courseId: string, assignmentId: string): void => {
-  const course = getCourseById(courseId);
-  if (course && course.assignments) {
-    course.assignments = course.assignments.filter(assignment => assignment.id !== assignmentId);
-    updateCourse(course);
-  }
-};
-
-// Add admin stats function for the AdminDashboard
-export const getAdminStats = () => {
-  const courses = getCourses();
-  const totalCourses = courses.length;
-  const publishedCourses = courses.filter(c => c.status === 'published').length;
-  const draftCourses = courses.filter(c => c.status === 'draft').length;
-  
-  let totalLessons = 0;
-  courses.forEach(course => {
-    if (course.sections) {
-      course.sections.forEach(section => {
-        totalLessons += section.lessons.length;
-      });
-    }
-  });
-  
-  return {
-    totalCourses,
-    publishedCourses,
-    draftCourses,
-    totalLessons,
-    totalStudents: 0 // This would need real data from a user database
-  };
-};
-
-// Mock courses data
-const mockCourses = [
+// Start of fixed mock data
+const mockCourses: Course[] = [
   {
     id: "1",
-    title: "The Brand Strategy Masterclass",
-    category: "Marketing",
+    title: "Ultimate Brand Framework",
+    category: "Business",
     instructor: {
-      id: "i1",
-      name: "John Doe",
-      role: "Instructor",
-      avatar: "JD"
+      id: "101",
+      name: "Sarah Johnson",
+      role: "Brand Strategist",
+      avatar: "/lovable-uploads/e98cd24b-ef7d-485c-b055-e522a1b42a50.png",
     },
-    description: "Learn how to create and implement effective brand strategies that drive business growth.",
-    thumbnail: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1740&q=80",
+    description: "Learn the essential frameworks for building a strong brand identity from the ground up.",
+    thumbnail: "/lovable-uploads/225b2ac5-0ee7-49a0-ab7c-8110e42dc865.png",
     rating: 4.8,
-    reviews: 124,
-    totalHours: 4.5,
-    status: "published",
-    lastUpdated: "2024-03-15",
-    tags: ["branding", "marketing", "strategy"],
-    logo: "B",
-    bgColor: "bg-blue-500",
+    reviews: 243,
+    progress: 35,
+    hoursCompleted: 2.5,
+    totalHours: 12,
+    enrolled: true,
+    status: "published" as const,
+    lastUpdated: "2023-04-15",
     price: 49.99,
+    tags: ["branding", "marketing", "business"],
+    bgColor: "#FFE4E1",
     sections: [
       {
         id: "s1",
-        title: "01: Introduction to Brand Strategy",
-        duration: "55min",
+        title: "Introduction to Branding",
+        duration: "2h 15m",
         expanded: true,
         lessons: [
-          { id: "l1", title: "Welcome to the Course", duration: "5 min", isCompleted: false },
-          { id: "l2", title: "What is Brand Strategy?", duration: "15 min", isCompleted: false },
-          { id: "l3", title: "The Importance of Brand Positioning", duration: "20 min", isCompleted: false },
-          { id: "l4", title: "Brand Strategy Framework", duration: "15 min", isCompleted: false }
+          {
+            id: "l1",
+            title: "What is a Brand?",
+            duration: "15m",
+            isCompleted: true,
+            content: "A brand is more than just a logo or visual identity. It's the entire experience that customers have with your company, product, or service. This includes visual elements, messaging, values, and the emotions your brand evokes.",
+            videoUrl: "https://example.com/video1.mp4",
+            section_title: "Introduction to Branding"
+          },
+          {
+            id: "l2",
+            title: "Brand vs Branding",
+            duration: "20m",
+            isCompleted: true,
+            content: "While a brand is the perception of your company, branding is the process of building and shaping that perception. Branding involves strategic decisions about positioning, messaging, visual identity, and customer experience.",
+            videoUrl: "https://example.com/video2.mp4",
+            section_title: "Introduction to Branding"
+          },
+          {
+            id: "l3",
+            title: "Why Branding Matters",
+            duration: "25m",
+            isCompleted: false,
+            content: "Strong branding builds recognition, trust, and loyalty. It differentiates you from competitors, commands premium pricing, and creates emotional connections with customers. Effective branding also provides internal benefits by guiding company culture and decision-making.",
+            videoUrl: "https://example.com/video3.mp4",
+            section_title: "Introduction to Branding"
+          }
         ]
       },
       {
         id: "s2",
-        title: "02: Brand Research & Analysis",
-        duration: "1h 10min",
+        title: "Brand Strategy Fundamentals",
+        duration: "3h 45m",
         expanded: false,
         lessons: [
-          { id: "l5", title: "Market Research Techniques", duration: "25 min", isCompleted: false },
-          { id: "l6", title: "Competitor Analysis", duration: "20 min", isCompleted: false },
-          { id: "l7", title: "Customer Insight Research", duration: "25 min", isCompleted: false }
-        ]
-      },
-      {
-        id: "s3",
-        title: "03: Brand Positioning",
-        duration: "1h 25min",
-        expanded: false,
-        lessons: [
-          { id: "l8", title: "Defining Your Brand Position", duration: "30 min", isCompleted: false },
-          { id: "l9", title: "Creating a Unique Value Proposition", duration: "25 min", isCompleted: false },
-          { id: "l10", title: "Brand Positioning Statement Workshop", duration: "30 min", isCompleted: false }
-        ]
-      },
-      {
-        id: "s4",
-        title: "04: Brand Messaging Strategy",
-        duration: "50min",
-        expanded: false,
-        lessons: [
-          { id: "l11", title: "Core Brand Messaging", duration: "20 min", isCompleted: false },
-          { id: "l12", title: "Creating Your Brand Voice", duration: "15 min", isCompleted: false },
-          { id: "l13", title: "Brand Messaging Framework", duration: "15 min", isCompleted: false }
+          {
+            id: "l4",
+            title: "Brand Purpose and Vision",
+            duration: "30m",
+            isCompleted: false,
+            content: "Your brand purpose is why your brand exists beyond making money. It's the positive impact you aim to have on customers and society. Your brand vision is what you aspire to achieve in the future. Together, they guide your brand's direction and decisions.",
+            videoUrl: "https://example.com/video4.mp4",
+            section_title: "Brand Strategy Fundamentals"
+          },
+          {
+            id: "l5",
+            title: "Target Audience and Personas",
+            duration: "45m",
+            isCompleted: false,
+            content: "Defining your target audience is crucial for effective branding. Create detailed buyer personas that include demographics, psychographics, behaviors, needs, and pain points. Understanding your audience deeply allows you to create more relevant and resonant brand experiences.",
+            videoUrl: "https://example.com/video5.mp4",
+            section_title: "Brand Strategy Fundamentals"
+          }
         ]
       }
     ],
     assignments: [
       {
         id: "a1",
-        title: "Brand Strategy Analysis",
-        description: "Analyze a brand of your choice using the framework discussed in the course.",
-        dueDate: "2024-05-01",
+        title: "Brand Audit",
+        description: "Conduct a comprehensive audit of an existing brand of your choice. Analyze their visual identity, messaging, positioning, and customer experience. Identify strengths and areas for improvement.",
+        dueDate: "2023-05-15",
         status: "pending"
       },
       {
         id: "a2",
-        title: "Create Your Brand Positioning Statement",
-        description: "Based on the lectures, create a compelling brand positioning statement for your business or personal brand.",
-        dueDate: "2024-05-15",
+        title: "Brand Strategy Document",
+        description: "Create a complete brand strategy document for a fictional company. Include purpose, vision, mission, values, positioning, messaging, and target audience personas.",
+        dueDate: "2023-06-01",
         status: "pending"
       }
     ],
     quizzes: [
       {
         id: "q1",
-        title: "Brand Strategy Fundamentals",
-        description: "Test your knowledge of brand strategy concepts.",
+        title: "Branding Fundamentals Quiz",
+        description: "Test your understanding of basic branding concepts and principles.",
         timeLimit: 15,
-        status: "not_started",
         questions: [
           {
-            id: "qu1",
-            question: "What is the primary purpose of brand positioning?",
+            id: "q1-1",
+            question: "What is a brand?",
             type: "multiple_choice",
             options: [
-              "To increase sales immediately",
-              "To establish a unique place in the mind of the customer",
-              "To create a logo",
-              "To hire more employees"
+              "Just a logo and visual elements",
+              "The entire experience customers have with your company",
+              "A marketing campaign",
+              "A product or service"
             ],
-            correctAnswer: "To establish a unique place in the mind of the customer"
+            correctAnswer: "The entire experience customers have with your company"
           },
           {
-            id: "qu2",
-            question: "A strong brand strategy helps with customer retention.",
-            type: "true_false",
-            options: ["True", "False"],
-            correctAnswer: "True"
+            id: "q1-2",
+            question: "Brand positioning is:",
+            type: "multiple_choice",
+            options: [
+              "Where your logo appears on marketing materials",
+              "How your brand is placed on store shelves",
+              "How your brand is perceived in relation to competitors",
+              "The physical location of your business"
+            ],
+            correctAnswer: "How your brand is perceived in relation to competitors"
           }
-        ]
+        ],
+        status: "not_started"
       }
     ]
   },
   {
     id: "2",
-    title: "Brand Identity Design Essentials",
-    category: "Design",
+    title: "Digital Marketing Essentials",
+    category: "Marketing",
     instructor: {
-      id: "i2",
-      name: "Jane Smith",
-      role: "Designer",
-      avatar: "JS"
+      id: "102",
+      name: "Michael Brown",
+      role: "Marketing Director",
+      avatar: "/lovable-uploads/e98cd24b-ef7d-485c-b055-e522a1b42a50.png",
     },
-    description: "Master the fundamentals of brand identity design, from logos to visual systems.",
-    thumbnail: "https://images.unsplash.com/photo-1626785774573-4b799315345d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80",
-    rating: 4.5,
-    reviews: 86,
-    totalHours: 5.2,
-    status: "published",
-    lastUpdated: "2024-02-22",
-    tags: ["design", "branding", "identity"],
-    logo: "D",
-    bgColor: "bg-purple-500",
-    price: 59.99
+    description: "Master the fundamentals of digital marketing including SEO, social media, and content strategy.",
+    thumbnail: "/lovable-uploads/225b2ac5-0ee7-49a0-ab7c-8110e42dc865.png",
+    rating: 4.6,
+    reviews: 189,
+    totalHours: 15,
+    enrolled: false,
+    status: "published" as const,
+    lastUpdated: "2023-03-20",
+    price: 59.99,
+    tags: ["digital marketing", "SEO", "social media"],
+    bgColor: "#E6E6FA",
   },
   {
     id: "3",
-    title: "Brand Storytelling Workshop",
-    category: "Communication",
+    title: "Product Photography Masterclass",
+    category: "Photography",
     instructor: {
-      id: "i3",
-      name: "Robert Johnson",
-      role: "Communication Expert",
-      avatar: "RJ"
+      id: "103",
+      name: "Emma Rodriguez",
+      role: "Professional Photographer",
+      avatar: "/lovable-uploads/e98cd24b-ef7d-485c-b055-e522a1b42a50.png",
     },
-    description: "Learn how to craft compelling brand stories that connect with your audience.",
-    thumbnail: "https://images.unsplash.com/photo-1553877522-43269d4ea984?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80",
-    rating: 4.7,
-    reviews: 54,
-    totalHours: 3.5,
-    status: "published",
-    lastUpdated: "2024-03-10",
-    tags: ["storytelling", "communication", "content"],
-    logo: "S",
-    bgColor: "bg-yellow-500",
-    price: 39.99
-  },
-  {
-    id: "4",
-    title: "Digital Brand Management",
-    category: "Marketing",
-    instructor: {
-      id: "i4",
-      name: "Emily Wilson",
-      role: "Digital Marketer",
-      avatar: "EW"
-    },
-    description: "Learn strategies for managing and growing your brand in the digital landscape.",
-    thumbnail: "https://images.unsplash.com/photo-1557804506-669a67965ba0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1374&q=80",
-    totalHours: 6.0,
-    status: "draft",
-    lastUpdated: "2024-04-02",
-    tags: ["digital", "management", "social media"],
-    logo: "D",
-    bgColor: "bg-green-500",
-    price: 79.99
+    description: "Learn how to capture stunning product photos for your brand or clients using simple equipment.",
+    thumbnail: "/lovable-uploads/225b2ac5-0ee7-49a0-ab7c-8110e42dc865.png",
+    rating: 4.9,
+    reviews: 127,
+    totalHours: 8,
+    enrolled: false,
+    status: "draft" as const,
+    lastUpdated: "2023-05-02",
+    price: 39.99,
+    tags: ["photography", "product", "visual"],
+    bgColor: "#F0F8FF",
   }
 ];
 
-// Initialize storage with mock data if not already done
-if (!localStorage.getItem(COURSES_STORAGE_KEY)) {
-  saveCourses(mockCourses);
-}
-
-if (!localStorage.getItem(ENROLLED_COURSES_KEY)) {
-  // Default to the first course being enrolled
-  setEnrolledCourseIds(["1"]);
-}
-
-// We're now using the courseNotesService for notes functionality
-import { courseNotesService } from "@/services/courseNotesService";
-import { bookmarkService } from "@/services/bookmarkService";
-
-// Update user's notes for a specific lesson
-export const updateUserNotes = async (userId: string, lessonId: string, courseId: string, noteContent: string): Promise<void> => {
-  return courseNotesService.updateUserNotes(userId, lessonId, courseId, noteContent);
+export const getCourses = () => {
+  return mockCourses;
 };
 
-// Get user notes for a specific lesson
-export const getUserNotes = async (userId: string, lessonId: string, courseId: string): Promise<string> => {
-  return courseNotesService.getUserNotes(userId, lessonId, courseId);
+export const getCourseById = (id: string) => {
+  return mockCourses.find(course => course.id === id);
 };
 
-// Get all user notes
-export const getAllUserNotes = async (userId: string): Promise<{ lessonId: string, courseId: string, content: string, updatedAt: string }[]> => {
-  return courseNotesService.getAllUserNotes(userId);
+export const getEnrolledCourses = () => {
+  return mockCourses.filter(course => course.enrolled);
 };
 
-// Check if course is bookmarked
-export const isCourseSaved = async (userId: string, courseId: string): Promise<boolean> => {
-  try {
-    if (!userId) {
-      return false;
-    }
-    
-    return bookmarkService.checkBookmark(courseId, 'course');
-  } catch (error) {
-    console.error("Error checking if course is bookmarked:", error);
-    return false;
+export const getLessonById = (courseId: string, lessonId: string) => {
+  const course = getCourseById(courseId);
+  if (!course || !course.sections) return null;
+  
+  for (const section of course.sections) {
+    const lesson = section.lessons.find(lesson => lesson.id === lessonId);
+    if (lesson) return lesson;
   }
+  
+  return null;
 };
 
-// Toggle course bookmark
-export const toggleCourseSaved = async (userId: string, course: Course): Promise<boolean> => {
-  try {
-    if (!userId) {
-      return false;
+export const getNextLesson = (courseId: string, currentLessonId: string) => {
+  const course = getCourseById(courseId);
+  if (!course || !course.sections) return null;
+  
+  let foundCurrent = false;
+  
+  for (const section of course.sections) {
+    for (const lesson of section.lessons) {
+      if (foundCurrent) {
+        return lesson;
+      }
+      if (lesson.id === currentLessonId) {
+        foundCurrent = true;
+      }
     }
-    
-    return bookmarkService.toggleBookmark(
-      course.id,
-      'course',
-      course.title,
-      course.description || '',
-      course.thumbnail || ''
-    );
-  } catch (error) {
-    console.error("Error toggling course bookmark:", error);
-    return false;
   }
+  
+  return null;
 };
 
-// Toggle lesson bookmark
-export const toggleLessonSaved = async (
-  userId: string, 
-  courseId: string, 
-  lessonId: string,
-  title: string,
-  thumbnail?: string
-): Promise<boolean> => {
-  try {
-    if (!userId) {
-      return false;
+export const getPreviousLesson = (courseId: string, currentLessonId: string) => {
+  const course = getCourseById(courseId);
+  if (!course || !course.sections) return null;
+  
+  let previousLesson = null;
+  
+  for (const section of course.sections) {
+    for (const lesson of section.lessons) {
+      if (lesson.id === currentLessonId) {
+        return previousLesson;
+      }
+      previousLesson = lesson;
     }
-    
-    const course = getCourseById(courseId);
-    const description = `Course: ${course?.title || courseId}`;
-    
-    return bookmarkService.toggleBookmark(
-      lessonId,
-      'lesson',
-      title,
-      description,
-      thumbnail || ''
-    );
-  } catch (error) {
-    console.error("Error toggling lesson bookmark:", error);
-    return false;
   }
+  
+  return null;
 };
 
-// Check if lesson is bookmarked
-export const isLessonSaved = async (userId: string, lessonId: string): Promise<boolean> => {
-  try {
-    if (!userId) {
-      return false;
-    }
-    
-    return bookmarkService.checkBookmark(lessonId, 'lesson');
-  } catch (error) {
-    console.error("Error checking if lesson is bookmarked:", error);
-    return false;
-  }
+export const markLessonAsCompleted = (courseId: string, lessonId: string) => {
+  // In a real app, this would make an API call to update the database
+  console.log(`Marking lesson ${lessonId} as completed for course ${courseId}`);
+  return true;
+};
+
+export const getCourseSections = (courseId: string) => {
+  const course = getCourseById(courseId);
+  return course?.sections || [];
+};
+
+export const getFirstLesson = (courseId: string) => {
+  const course = getCourseById(courseId);
+  if (!course || !course.sections || course.sections.length === 0) return null;
+  
+  const firstSection = course.sections[0];
+  if (!firstSection.lessons || firstSection.lessons.length === 0) return null;
+  
+  return firstSection.lessons[0];
+};
+
+export const getUserNotes = async (userId: string, lessonId: string, courseId: string) => {
+  return await courseNotesService.getUserNotes(userId, lessonId, courseId);
+};
+
+export const saveUserNotes = async (userId: string, lessonId: string, courseId: string, content: string) => {
+  return await courseNotesService.updateUserNotes(userId, lessonId, courseId, content);
+};
+
+export const getAdminStats = () => {
+  return {
+    totalCourses: mockCourses.length,
+    publishedCourses: mockCourses.filter(c => c.status === 'published').length,
+    totalStudents: 239,
+    activeLearners: 156,
+    totalRevenue: 12580,
+    recentSales: 2340
+  };
+};
+
+export const updateCourseAssignment = (courseId: string, assignmentId: string, data: any) => {
+  console.log(`Updating assignment ${assignmentId} in course ${courseId}`);
+  return true;
+};
+
+export const deleteCourseAssignment = (courseId: string, assignmentId: string) => {
+  console.log(`Deleting assignment ${assignmentId} from course ${courseId}`);
+  return true;
+};
+
+export const getRecentCourses = () => {
+  return mockCourses.slice(0, 3);
 };

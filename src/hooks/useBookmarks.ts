@@ -23,7 +23,7 @@ export const useBookmarks = () => {
     setLoading(true);
     try {
       const bookmarkIds = await bookmarkService.getUserBookmarks(user.id);
-      // Since we're removing bookmark functionality, we'll just return an empty array
+      // Since we're using a stub implementation, we'll just return an empty array
       setBookmarks([]);
     } catch (error) {
       console.error('Error fetching bookmarks:', error);

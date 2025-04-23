@@ -3,12 +3,9 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import Sidebar from "@/components/Sidebar";
 import { useState } from "react";
+import { Outlet } from "react-router-dom";
 
-interface AppLayoutProps {
-  children: React.ReactNode;
-}
-
-export const AppLayout = ({ children }: AppLayoutProps) => {
+export const AppLayout = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   return (
@@ -23,7 +20,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
         sidebarCollapsed ? "ml-16" : "ml-64"
       )}>
         <div className="container py-6 max-w-7xl">
-          {children}
+          <Outlet />
         </div>
       </div>
     </div>
