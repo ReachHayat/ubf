@@ -480,14 +480,14 @@ export const deleteCourseAssignment = async (courseId: string, assignmentId: str
 // Enroll in course
 export const enrollInCourse = async (courseId: string): Promise<boolean> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const userResponse = await supabase.auth.getUser();
     
-    if (!user) return false;
+    if (!userResponse.data.user) return false;
     
-    const enrolledCourses = JSON.parse(localStorage.getItem(`enrolled-${user.id}`) || '[]');
+    const enrolledCourses = JSON.parse(localStorage.getItem(`enrolled-${userResponse.data.user.id}`) || '[]');
     if (!enrolledCourses.includes(courseId)) {
       enrolledCourses.push(courseId);
-      localStorage.setItem(`enrolled-${user.id}`, JSON.stringify(enrolledCourses));
+      localStorage.setItem(`enrolled-${userResponse.data.user.id}`, JSON.stringify(enrolledCourses));
     }
     
     return true;
@@ -505,13 +505,13 @@ export const enrollInCourse = async (courseId: string): Promise<boolean> => {
 // Unenroll from course
 export const unenrollFromCourse = async (courseId: string): Promise<boolean> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const userResponse = await supabase.auth.getUser();
     
-    if (!user) return false;
+    if (!userResponse.data.user) return false;
     
-    let enrolledCourses = JSON.parse(localStorage.getItem(`enrolled-${user.id}`) || '[]');
+    let enrolledCourses = JSON.parse(localStorage.getItem(`enrolled-${userResponse.data.user.id}`) || '[]');
     enrolledCourses = enrolledCourses.filter((id: string) => id !== courseId);
-    localStorage.setItem(`enrolled-${user.id}`, JSON.stringify(enrolledCourses));
+    localStorage.setItem(`enrolled-${userResponse.data.user.id}`, JSON.stringify(enrolledCourses));
     
     return true;
   } catch (error) {
@@ -528,11 +528,11 @@ export const unenrollFromCourse = async (courseId: string): Promise<boolean> => 
 // Mark video as watched
 export const markVideoAsWatched = async (courseId: string, lessonId: string): Promise<boolean> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const userResponse = await supabase.auth.getUser();
     
-    if (!user) return false;
+    if (!userResponse.data.user) return false;
     
-    const watchedKey = `watched-${user.id}-${courseId}`;
+    const watchedKey = `watched-${userResponse.data.user.id}-${courseId}`;
     const watchedLessons = JSON.parse(localStorage.getItem(watchedKey) || '[]');
     if (!watchedLessons.includes(lessonId)) {
       watchedLessons.push(lessonId);
@@ -549,7 +549,8 @@ export const markVideoAsWatched = async (courseId: string, lessonId: string): Pr
 // Check if video is watched
 export const isVideoWatched = (courseId: string, lessonId: string): boolean => {
   try {
-    const { data: { user } } = supabase.auth.getUser();
+    const userResponse = supabase.auth.getUser();
+    const user = JSON.parse(localStorage.getItem('supabase.auth.token') || '{}')?.currentSession?.user;
     
     if (!user) return false;
     

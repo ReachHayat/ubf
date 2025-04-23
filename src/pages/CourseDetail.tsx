@@ -195,16 +195,20 @@ const CourseDetail = () => {
       const success = await updateCourseSection(course.id, section);
       
       if (success) {
-        const updatedCourseData = await getCourseById(course.id);
-        if (updatedCourseData) {
-          setCourse(updatedCourseData);
-          setSections(updatedCourseData.sections || []);
+        try {
+          const updatedCourseData = await getCourseById(course.id);
+          if (updatedCourseData) {
+            setCourse(updatedCourseData);
+            setSections(updatedCourseData.sections || []);
+          }
+          
+          toast({
+            title: "Section updated",
+            description: "The section has been updated successfully."
+          });
+        } catch (error) {
+          console.error("Error fetching updated course data:", error);
         }
-        
-        toast({
-          title: "Section updated",
-          description: "The section has been updated successfully."
-        });
       }
     } catch (error) {
       console.error("Error saving section:", error);
@@ -224,16 +228,20 @@ const CourseDetail = () => {
         const success = await deleteCourseSection(course.id, sectionId);
         
         if (success) {
-          const updatedCourseData = await getCourseById(course.id);
-          if (updatedCourseData) {
-            setCourse(updatedCourseData);
-            setSections(updatedCourseData.sections || []);
+          try {
+            const updatedCourseData = await getCourseById(course.id);
+            if (updatedCourseData) {
+              setCourse(updatedCourseData);
+              setSections(updatedCourseData.sections || []);
+            }
+            
+            toast({
+              title: "Section deleted",
+              description: "The section has been deleted successfully."
+            });
+          } catch (error) {
+            console.error("Error fetching updated course data:", error);
           }
-          
-          toast({
-            title: "Section deleted",
-            description: "The section has been deleted successfully."
-          });
         }
       } catch (error) {
         console.error("Error deleting section:", error);
@@ -259,16 +267,20 @@ const CourseDetail = () => {
       const success = await updateCourseLesson(course.id, currentSectionId, lesson);
       
       if (success) {
-        const updatedCourseData = await getCourseById(course.id);
-        if (updatedCourseData) {
-          setCourse(updatedCourseData);
-          setSections(updatedCourseData.sections || []);
+        try {
+          const updatedCourseData = await getCourseById(course.id);
+          if (updatedCourseData) {
+            setCourse(updatedCourseData);
+            setSections(updatedCourseData.sections || []);
+          }
+          
+          toast({
+            title: "Lesson updated",
+            description: "The lesson has been updated successfully."
+          });
+        } catch (error) {
+          console.error("Error fetching updated course data:", error);
         }
-        
-        toast({
-          title: "Lesson updated",
-          description: "The lesson has been updated successfully."
-        });
       }
     } catch (error) {
       console.error("Error saving lesson:", error);
@@ -288,16 +300,20 @@ const CourseDetail = () => {
         const success = await deleteCourseLesson(course.id, sectionId, lessonId);
         
         if (success) {
-          const updatedCourseData = await getCourseById(course.id);
-          if (updatedCourseData) {
-            setCourse(updatedCourseData);
-            setSections(updatedCourseData.sections || []);
+          try {
+            const updatedCourseData = await getCourseById(course.id);
+            if (updatedCourseData) {
+              setCourse(updatedCourseData);
+              setSections(updatedCourseData.sections || []);
+            }
+            
+            toast({
+              title: "Lesson deleted",
+              description: "The lesson has been deleted successfully."
+            });
+          } catch (error) {
+            console.error("Error fetching updated course data:", error);
           }
-          
-          toast({
-            title: "Lesson deleted",
-            description: "The lesson has been deleted successfully."
-          });
         }
       } catch (error) {
         console.error("Error deleting lesson:", error);
