@@ -74,24 +74,37 @@ const CourseDetail = () => {
   const [shareSuccess, setShareSuccess] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      setLoading(true);
-      const courseData = getCourseById(id);
-      
-      if (courseData) {
-        setCourse(courseData);
-        setSections(courseData.sections || []);
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Course not found",
-          description: "The course you're looking for doesn't exist or has been removed."
-        });
-        navigate("/courses");
+    const fetchCourseData = async () => {
+      if (id) {
+        setLoading(true);
+        try {
+          const courseData = await getCourseById(id);
+          
+          if (courseData) {
+            setCourse(courseData);
+            setSections(courseData.sections || []);
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Course not found",
+              description: "The course you're looking for doesn't exist or has been removed."
+            });
+            navigate("/courses");
+          }
+        } catch (error) {
+          console.error("Error fetching course:", error);
+          toast({
+            variant: "destructive",
+            title: "Error loading course",
+            description: "Please try again later."
+          });
+        } finally {
+          setLoading(false);
+        }
       }
-      
-      setLoading(false);
-    }
+    };
+    
+    fetchCourseData();
   }, [id, navigate]);
 
   const toggleSection = (sectionId: string) => {
@@ -171,43 +184,65 @@ const CourseDetail = () => {
     setIsEditingSections(true);
   };
 
-  const handleSaveSection = (section: CourseSection) => {
+  const handleSaveSection = async (section: CourseSection) => {
     if (!course || !course.id) return;
     
     if (!course.sections) {
       course.sections = [];
     }
     
-    updateCourseSection(course.id, section);
-    
-    const updatedCourse = getCourseById(course.id);
-    if (updatedCourse) {
-      setCourse(updatedCourse);
-      setSections(updatedCourse.sections || []);
+    try {
+      const success = await updateCourseSection(course.id, section);
+      
+      if (success) {
+        const updatedCourseData = await getCourseById(course.id);
+        if (updatedCourseData) {
+          setCourse(updatedCourseData);
+          setSections(updatedCourseData.sections || []);
+        }
+        
+        toast({
+          title: "Section updated",
+          description: "The section has been updated successfully."
+        });
+      }
+    } catch (error) {
+      console.error("Error saving section:", error);
+      toast({
+        variant: "destructive",
+        title: "Error saving section",
+        description: "Please try again later."
+      });
     }
-    
-    toast({
-      title: "Section updated",
-      description: "The section has been updated successfully."
-    });
   };
 
-  const handleDeleteSection = (sectionId: string) => {
+  const handleDeleteSection = async (sectionId: string) => {
     if (!course || !course.id) return;
     
     if (confirm("Are you sure you want to delete this section?")) {
-      deleteCourseSection(course.id, sectionId);
-      
-      const updatedCourse = getCourseById(course.id);
-      if (updatedCourse) {
-        setCourse(updatedCourse);
-        setSections(updatedCourse.sections || []);
+      try {
+        const success = await deleteCourseSection(course.id, sectionId);
+        
+        if (success) {
+          const updatedCourseData = await getCourseById(course.id);
+          if (updatedCourseData) {
+            setCourse(updatedCourseData);
+            setSections(updatedCourseData.sections || []);
+          }
+          
+          toast({
+            title: "Section deleted",
+            description: "The section has been deleted successfully."
+          });
+        }
+      } catch (error) {
+        console.error("Error deleting section:", error);
+        toast({
+          variant: "destructive",
+          title: "Error deleting section",
+          description: "Please try again later."
+        });
       }
-      
-      toast({
-        title: "Section deleted",
-        description: "The section has been deleted successfully."
-      });
     }
   };
 
@@ -217,39 +252,61 @@ const CourseDetail = () => {
     setIsEditingLesson(true);
   };
 
-  const handleSaveLesson = (lesson: CourseLesson) => {
+  const handleSaveLesson = async (lesson: CourseLesson) => {
     if (!course || !course.id || !currentSectionId) return;
     
-    updateCourseLesson(course.id, currentSectionId, lesson);
-    
-    const updatedCourse = getCourseById(course.id);
-    if (updatedCourse) {
-      setCourse(updatedCourse);
-      setSections(updatedCourse.sections || []);
+    try {
+      const success = await updateCourseLesson(course.id, currentSectionId, lesson);
+      
+      if (success) {
+        const updatedCourseData = await getCourseById(course.id);
+        if (updatedCourseData) {
+          setCourse(updatedCourseData);
+          setSections(updatedCourseData.sections || []);
+        }
+        
+        toast({
+          title: "Lesson updated",
+          description: "The lesson has been updated successfully."
+        });
+      }
+    } catch (error) {
+      console.error("Error saving lesson:", error);
+      toast({
+        variant: "destructive",
+        title: "Error saving lesson",
+        description: "Please try again later."
+      });
     }
-    
-    toast({
-      title: "Lesson updated",
-      description: "The lesson has been updated successfully."
-    });
   };
 
-  const handleDeleteLesson = (sectionId: string, lessonId: string) => {
+  const handleDeleteLesson = async (sectionId: string, lessonId: string) => {
     if (!course || !course.id) return;
     
     if (confirm("Are you sure you want to delete this lesson?")) {
-      deleteCourseLesson(course.id, sectionId, lessonId);
-      
-      const updatedCourse = getCourseById(course.id);
-      if (updatedCourse) {
-        setCourse(updatedCourse);
-        setSections(updatedCourse.sections || []);
+      try {
+        const success = await deleteCourseLesson(course.id, sectionId, lessonId);
+        
+        if (success) {
+          const updatedCourseData = await getCourseById(course.id);
+          if (updatedCourseData) {
+            setCourse(updatedCourseData);
+            setSections(updatedCourseData.sections || []);
+          }
+          
+          toast({
+            title: "Lesson deleted",
+            description: "The lesson has been deleted successfully."
+          });
+        }
+      } catch (error) {
+        console.error("Error deleting lesson:", error);
+        toast({
+          variant: "destructive",
+          title: "Error deleting lesson",
+          description: "Please try again later."
+        });
       }
-      
-      toast({
-        title: "Lesson deleted",
-        description: "The lesson has been deleted successfully."
-      });
     }
   };
 
@@ -258,37 +315,59 @@ const CourseDetail = () => {
     setIsEditingAssignment(true);
   };
 
-  const handleSaveAssignment = (assignment: CourseAssignment) => {
+  const handleSaveAssignment = async (assignment: CourseAssignment) => {
     if (!course || !course.id) return;
     
-    updateCourseAssignment(course.id, assignment);
-    
-    const updatedCourse = getCourseById(course.id);
-    if (updatedCourse) {
-      setCourse(updatedCourse);
+    try {
+      const success = await updateCourseAssignment(course.id, assignment);
+      
+      if (success) {
+        const updatedCourseData = await getCourseById(course.id);
+        if (updatedCourseData) {
+          setCourse(updatedCourseData);
+        }
+        
+        toast({
+          title: "Assignment updated",
+          description: "The assignment has been updated successfully."
+        });
+      }
+    } catch (error) {
+      console.error("Error saving assignment:", error);
+      toast({
+        variant: "destructive",
+        title: "Error saving assignment",
+        description: "Please try again later."
+      });
     }
-    
-    toast({
-      title: "Assignment updated",
-      description: "The assignment has been updated successfully."
-    });
   };
 
-  const handleDeleteAssignment = (assignmentId: string) => {
+  const handleDeleteAssignment = async (assignmentId: string) => {
     if (!course || !course.id) return;
     
     if (confirm("Are you sure you want to delete this assignment?")) {
-      deleteCourseAssignment(course.id, assignmentId);
-      
-      const updatedCourse = getCourseById(course.id);
-      if (updatedCourse) {
-        setCourse(updatedCourse);
+      try {
+        const success = await deleteCourseAssignment(course.id, assignmentId);
+        
+        if (success) {
+          const updatedCourseData = await getCourseById(course.id);
+          if (updatedCourseData) {
+            setCourse(updatedCourseData);
+          }
+          
+          toast({
+            title: "Assignment deleted",
+            description: "The assignment has been deleted successfully."
+          });
+        }
+      } catch (error) {
+        console.error("Error deleting assignment:", error);
+        toast({
+          variant: "destructive",
+          title: "Error deleting assignment",
+          description: "Please try again later."
+        });
       }
-      
-      toast({
-        title: "Assignment deleted",
-        description: "The assignment has been deleted successfully."
-      });
     }
   };
 
@@ -338,21 +417,32 @@ const CourseDetail = () => {
     }
   };
 
-  const handleEnrollment = () => {
+  const handleEnrollment = async () => {
     if (!course) return;
     
     if (course.enrolled) {
       handleContinueLearning();
     } else {
-      enrollInCourse(course.id);
-      toast({
-        title: "Enrolled",
-        description: "You have successfully enrolled in this course!"
-      });
-      
-      const updatedCourse = getCourseById(course.id);
-      if (updatedCourse) {
-        setCourse(updatedCourse);
+      try {
+        const success = await enrollInCourse(course.id);
+        if (success) {
+          toast({
+            title: "Enrolled",
+            description: "You have successfully enrolled in this course!"
+          });
+          
+          const updatedCourseData = await getCourseById(course.id);
+          if (updatedCourseData) {
+            setCourse(updatedCourseData);
+          }
+        }
+      } catch (error) {
+        console.error("Error enrolling in course:", error);
+        toast({
+          variant: "destructive",
+          title: "Error enrolling in course",
+          description: "Please try again later."
+        });
       }
     }
   };

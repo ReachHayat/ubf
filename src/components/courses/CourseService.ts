@@ -1,4 +1,3 @@
-
 import { Course } from "@/types/course";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -60,18 +59,14 @@ export const getCourses = async (): Promise<Course[]> => {
 // Get courses that the current user is enrolled in
 export const getEnrolledCourses = async (): Promise<Course[]> => {
   try {
-    // First, get the current user's ID
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       return [];
     }
     
-    // For now, we'll return a subset of all courses as "enrolled"
-    // In a real implementation, you would have an enrollments table to track this
     const allCourses = await getCourses();
     
-    // Simulate enrollment (in real app, fetch from enrollments table)
     const enrolledCourses = allCourses.slice(0, 2).map(course => ({
       ...course,
       enrolled: true,
@@ -98,7 +93,6 @@ export const filterAndSortCourses = (
   category: string = "All Categories",
   sortBy: string = "Most Popular"
 ): Course[] => {
-  // Filter by search query
   let filteredCourses = courses;
   
   if (searchQuery) {
@@ -109,14 +103,12 @@ export const filterAndSortCourses = (
     );
   }
   
-  // Filter by category
   if (category !== "All Categories") {
     filteredCourses = filteredCourses.filter(
       course => course.category === category
     );
   }
   
-  // Sort courses
   switch (sortBy) {
     case "Most Popular":
       filteredCourses.sort((a, b) => (b.reviews || 0) - (a.reviews || 0));
@@ -170,7 +162,6 @@ export const getAllCategories = async (): Promise<string[]> => {
 // Get admin stats
 export const getAdminStats = async () => {
   try {
-    // Get courses count stats
     const { data: coursesData, error: coursesError } = await supabase
       .from('courses')
       .select('status')
@@ -182,14 +173,12 @@ export const getAdminStats = async () => {
     const publishedCourses = coursesData ? coursesData.filter(c => c.status === 'published').length : 0;
     const draftCourses = coursesData ? coursesData.filter(c => c.status === 'draft').length : 0;
     
-    // Get lessons count
     const { count: lessonsCount, error: lessonsError } = await supabase
       .from('course_lessons')
       .select('id', { count: 'exact', head: true });
     
     if (lessonsError) throw lessonsError;
     
-    // Get students count (for demo, all non-admin users)
     const { data: usersWithRoles, error: usersError } = await supabase
       .from('users_with_roles')
       .select('*');
@@ -205,7 +194,6 @@ export const getAdminStats = async () => {
       draftCourses,
       totalLessons: lessonsCount || 0,
       totalStudents,
-      // These could come from additional queries in a real app
       activeLearners: Math.round(totalStudents * 0.6),
       recentSales: 12,
     };
@@ -289,5 +277,305 @@ export const getCourseById = async (id: string): Promise<Course | null> => {
       variant: "destructive",
     });
     return null;
+  }
+};
+
+// Update course
+export const updateCourse = async (course: Course): Promise<Course | null> => {
+  try {
+    if (!course || !course.id) return null;
+    
+    const { data, error } = await supabase
+      .from('courses')
+      .update({
+        title: course.title,
+        description: course.description,
+        status: course.status,
+        rating: course.rating,
+        reviews: course.reviews,
+        total_hours: course.totalHours,
+        price: course.price,
+        tags: course.tags,
+        thumbnail: course.thumbnail,
+        bg_color: course.bgColor,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', course.id)
+      .select();
+      
+    if (error) throw error;
+    
+    return getCourseById(course.id);
+  } catch (error) {
+    console.error("Error updating course:", error);
+    toast({
+      title: "Error updating course",
+      description: "Please try again later",
+      variant: "destructive",
+    });
+    return null;
+  }
+};
+
+// Update course section
+export const updateCourseSection = async (courseId: string, section: any): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('course_sections')
+      .upsert({
+        id: section.id || undefined,
+        title: section.title,
+        duration: section.duration,
+        position: section.position || 0,
+        course_id: courseId,
+        updated_at: new Date().toISOString()
+      })
+      .select();
+      
+    if (error) throw error;
+    
+    return true;
+  } catch (error) {
+    console.error("Error updating section:", error);
+    toast({
+      title: "Error updating section",
+      description: "Please try again later",
+      variant: "destructive",
+    });
+    return false;
+  }
+};
+
+// Delete course section
+export const deleteCourseSection = async (courseId: string, sectionId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('course_sections')
+      .delete()
+      .eq('id', sectionId)
+      .eq('course_id', courseId);
+      
+    if (error) throw error;
+    
+    return true;
+  } catch (error) {
+    console.error("Error deleting section:", error);
+    toast({
+      title: "Error deleting section",
+      description: "Please try again later",
+      variant: "destructive",
+    });
+    return false;
+  }
+};
+
+// Update course lesson
+export const updateCourseLesson = async (courseId: string, sectionId: string, lesson: any): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('course_lessons')
+      .upsert({
+        id: lesson.id || undefined,
+        title: lesson.title,
+        content: lesson.content,
+        duration: lesson.duration,
+        section_id: sectionId,
+        position: lesson.position || 0,
+        video_url: lesson.videoUrl,
+        updated_at: new Date().toISOString()
+      })
+      .select();
+      
+    if (error) throw error;
+    
+    return true;
+  } catch (error) {
+    console.error("Error updating lesson:", error);
+    toast({
+      title: "Error updating lesson",
+      description: "Please try again later",
+      variant: "destructive",
+    });
+    return false;
+  }
+};
+
+// Delete course lesson
+export const deleteCourseLesson = async (courseId: string, sectionId: string, lessonId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('course_lessons')
+      .delete()
+      .eq('id', lessonId)
+      .eq('section_id', sectionId);
+      
+    if (error) throw error;
+    
+    return true;
+  } catch (error) {
+    console.error("Error deleting lesson:", error);
+    toast({
+      title: "Error deleting lesson",
+      description: "Please try again later",
+      variant: "destructive",
+    });
+    return false;
+  }
+};
+
+// Update course assignment
+export const updateCourseAssignment = async (courseId: string, assignment: any): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('assignments')
+      .upsert({
+        id: assignment.id || undefined,
+        title: assignment.title,
+        description: assignment.description,
+        course_id: courseId,
+        due_date: assignment.dueDate,
+        submission_type: assignment.submissionType || 'file',
+        max_points: assignment.maxPoints || 100,
+        updated_at: new Date().toISOString()
+      })
+      .select();
+      
+    if (error) throw error;
+    
+    return true;
+  } catch (error) {
+    console.error("Error updating assignment:", error);
+    toast({
+      title: "Error updating assignment",
+      description: "Please try again later",
+      variant: "destructive",
+    });
+    return false;
+  }
+};
+
+// Delete course assignment
+export const deleteCourseAssignment = async (courseId: string, assignmentId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('assignments')
+      .delete()
+      .eq('id', assignmentId)
+      .eq('course_id', courseId);
+      
+    if (error) throw error;
+    
+    return true;
+  } catch (error) {
+    console.error("Error deleting assignment:", error);
+    toast({
+      title: "Error deleting assignment",
+      description: "Please try again later",
+      variant: "destructive",
+    });
+    return false;
+  }
+};
+
+// Enroll in course
+export const enrollInCourse = async (courseId: string): Promise<boolean> => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) return false;
+    
+    const enrolledCourses = JSON.parse(localStorage.getItem(`enrolled-${user.id}`) || '[]');
+    if (!enrolledCourses.includes(courseId)) {
+      enrolledCourses.push(courseId);
+      localStorage.setItem(`enrolled-${user.id}`, JSON.stringify(enrolledCourses));
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error enrolling in course:", error);
+    toast({
+      title: "Error enrolling in course",
+      description: "Please try again later",
+      variant: "destructive",
+    });
+    return false;
+  }
+};
+
+// Unenroll from course
+export const unenrollFromCourse = async (courseId: string): Promise<boolean> => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) return false;
+    
+    let enrolledCourses = JSON.parse(localStorage.getItem(`enrolled-${user.id}`) || '[]');
+    enrolledCourses = enrolledCourses.filter((id: string) => id !== courseId);
+    localStorage.setItem(`enrolled-${user.id}`, JSON.stringify(enrolledCourses));
+    
+    return true;
+  } catch (error) {
+    console.error("Error unenrolling from course:", error);
+    toast({
+      title: "Error unenrolling from course",
+      description: "Please try again later",
+      variant: "destructive",
+    });
+    return false;
+  }
+};
+
+// Mark video as watched
+export const markVideoAsWatched = async (courseId: string, lessonId: string): Promise<boolean> => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) return false;
+    
+    const watchedKey = `watched-${user.id}-${courseId}`;
+    const watchedLessons = JSON.parse(localStorage.getItem(watchedKey) || '[]');
+    if (!watchedLessons.includes(lessonId)) {
+      watchedLessons.push(lessonId);
+      localStorage.setItem(watchedKey, JSON.stringify(watchedLessons));
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error marking video as watched:", error);
+    return false;
+  }
+};
+
+// Check if video is watched
+export const isVideoWatched = (courseId: string, lessonId: string): boolean => {
+  try {
+    const { data: { user } } = supabase.auth.getUser();
+    
+    if (!user) return false;
+    
+    const watchedKey = `watched-${user.id}-${courseId}`;
+    const watchedLessons = JSON.parse(localStorage.getItem(watchedKey) || '[]');
+    return watchedLessons.includes(lessonId);
+  } catch (error) {
+    console.error("Error checking if video is watched:", error);
+    return false;
+  }
+};
+
+// Share course
+export const shareCourse = async (courseId: string): Promise<boolean> => {
+  try {
+    const url = `${window.location.origin}/courses/${courseId}`;
+    await navigator.clipboard.writeText(url);
+    
+    return true;
+  } catch (error) {
+    console.error("Error sharing course:", error);
+    toast({
+      title: "Error sharing course",
+      description: "Please try again later",
+      variant: "destructive",
+    });
+    return false;
   }
 };

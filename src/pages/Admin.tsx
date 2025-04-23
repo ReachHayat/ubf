@@ -10,7 +10,6 @@ import AdminDashboard from "./admin/AdminDashboard";
 import AdminUsers from "./admin/AdminUsers";
 import AdminCourses from "./admin/AdminCourses";
 import AdminAssignments from "./admin/AdminAssignments";
-import AdminCommunity from "./admin/AdminCommunity";
 import AdminSettings from "./admin/AdminSettings";
 
 const Admin = () => {
@@ -31,7 +30,6 @@ const Admin = () => {
           <Route path="/users" element={<AdminUsers />} />
           <Route path="/courses" element={<AdminCourses />} />
           <Route path="/assignments" element={<AdminAssignments />} />
-          <Route path="/community" element={<AdminCommunity />} />
           <Route path="/settings" element={<AdminSettings />} />
         </Routes>
       </div>

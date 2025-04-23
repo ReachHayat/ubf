@@ -49,60 +49,73 @@ const CourseViewer = () => {
   const [isBookmarked, setIsBookmarked] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      setIsLoading(true);
-      const courseData = getCourseById(id);
-      
-      if (courseData) {
-        setCourse(courseData);
-        setSections(courseData.sections || []);
-        
-        if (lessonId) {
-          let foundLesson = null;
+    const fetchCourseData = async () => {
+      if (id) {
+        setIsLoading(true);
+        try {
+          const courseData = await getCourseById(id);
           
-          courseData.sections?.forEach(section => {
-            section.lessons.forEach(lesson => {
-              if (lesson.id === lessonId) {
-                foundLesson = lesson;
-                markVideoAsWatched(id, lessonId);
+          if (courseData) {
+            setCourse(courseData);
+            setSections(courseData.sections || []);
+            
+            if (lessonId) {
+              let foundLesson = null;
+              
+              courseData.sections?.forEach(section => {
+                section.lessons.forEach(lesson => {
+                  if (lesson.id === lessonId) {
+                    foundLesson = lesson;
+                    markVideoAsWatched(id, lessonId);
+                  }
+                });
+              });
+              
+              if (foundLesson) {
+                setCurrentLesson(foundLesson);
+              } else if (courseData.sections && courseData.sections.length > 0) {
+                const firstSection = courseData.sections[0];
+                if (firstSection.lessons && firstSection.lessons.length > 0) {
+                  setCurrentLesson(firstSection.lessons[0]);
+                  navigate(`/course-viewer/${id}/${firstSection.lessons[0].id}`, { replace: true });
+                }
               }
-            });
-          });
-          
-          if (foundLesson) {
-            setCurrentLesson(foundLesson);
-          } else if (courseData.sections && courseData.sections.length > 0) {
-            const firstSection = courseData.sections[0];
-            if (firstSection.lessons && firstSection.lessons.length > 0) {
-              setCurrentLesson(firstSection.lessons[0]);
-              navigate(`/course-viewer/${id}/${firstSection.lessons[0].id}`, { replace: true });
+            } else if (courseData.sections && courseData.sections.length > 0) {
+              const firstSection = courseData.sections[0];
+              if (firstSection.lessons && firstSection.lessons.length > 0) {
+                setCurrentLesson(firstSection.lessons[0]);
+                navigate(`/course-viewer/${id}/${firstSection.lessons[0].id}`, { replace: true });
+              }
             }
+            
+            if (lessonId) {
+              loadNotes(lessonId);
+              loadDiscussions(lessonId);
+              loadResources(lessonId);
+              checkBookmarkStatus(lessonId);
+            }
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Course not found",
+              description: "The course you're looking for doesn't exist or has been removed."
+            });
+            navigate("/courses");
           }
-        } else if (courseData.sections && courseData.sections.length > 0) {
-          const firstSection = courseData.sections[0];
-          if (firstSection.lessons && firstSection.lessons.length > 0) {
-            setCurrentLesson(firstSection.lessons[0]);
-            navigate(`/course-viewer/${id}/${firstSection.lessons[0].id}`, { replace: true });
-          }
+        } catch (error) {
+          console.error("Error loading course:", error);
+          toast({
+            variant: "destructive",
+            title: "Error loading course",
+            description: "Please try again later."
+          });
+        } finally {
+          setIsLoading(false);
         }
-        
-        if (lessonId) {
-          loadNotes(lessonId);
-          loadDiscussions(lessonId);
-          loadResources(lessonId);
-          checkBookmarkStatus(lessonId);
-        }
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Course not found",
-          description: "The course you're looking for doesn't exist or has been removed."
-        });
-        navigate("/courses");
       }
-      
-      setIsLoading(false);
-    }
+    };
+    
+    fetchCourseData();
   }, [id, lessonId, navigate]);
 
   const loadNotes = async (lessonId: string) => {

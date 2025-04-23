@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,15 +24,30 @@ const AdminDashboard: React.FC = () => {
     totalLessons: 0,
     totalStudents: 0
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Fetch admin stats
-    const adminStats = getAdminStats();
-    setStats({
-      ...adminStats,
-      draftCourses: adminStats.draftCourses || 0,
-      totalLessons: adminStats.totalLessons || 0
-    });
+    const fetchAdminStats = async () => {
+      try {
+        const adminStatsData = await getAdminStats();
+        setStats({
+          totalCourses: adminStatsData.totalCourses || 0,
+          publishedCourses: adminStatsData.publishedCourses || 0,
+          draftCourses: adminStatsData.draftCourses || 0,
+          totalLessons: adminStatsData.totalLessons || 0,
+          totalStudents: adminStatsData.totalStudents || 0,
+          activeLearners: adminStatsData.activeLearners,
+          recentSales: adminStatsData.recentSales
+        });
+      } catch (error) {
+        console.error("Error fetching admin stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAdminStats();
   }, []);
 
   return (
