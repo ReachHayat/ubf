@@ -549,7 +549,6 @@ export const markVideoAsWatched = async (courseId: string, lessonId: string): Pr
 // Check if video is watched
 export const isVideoWatched = (courseId: string, lessonId: string): boolean => {
   try {
-    const userResponse = supabase.auth.getUser();
     const user = JSON.parse(localStorage.getItem('supabase.auth.token') || '{}')?.currentSession?.user;
     
     if (!user) return false;
