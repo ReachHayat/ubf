@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Course, CourseSection, CourseLesson } from "@/types/course";
 
@@ -313,5 +312,53 @@ export const isLessonSaved = async (userId: string, lessonId: string): Promise<b
   } catch (error) {
     console.error("Error checking if lesson is bookmarked:", error);
     return false;
+  }
+};
+
+// Get recent courses
+export const getRecentCourses = async (): Promise<Course[]> => {
+  try {
+    const { data: coursesData, error } = await supabase
+      .from('courses')
+      .select(`
+        *,
+        category:course_categories(name),
+        instructor:instructors(*)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(6);
+
+    if (error) throw error;
+    
+    // Transform the data to match the Course type
+    const courses: Course[] = (coursesData || []).map(courseData => ({
+      id: courseData.id,
+      title: courseData.title,
+      description: courseData.description || "",
+      category: courseData.category?.name || "Uncategorized",
+      instructor: {
+        id: courseData.instructor?.id || "",
+        name: courseData.instructor?.name || "Unknown",
+        role: courseData.instructor?.role || "Instructor",
+        avatar: courseData.instructor?.avatar || "",
+      },
+      thumbnail: courseData.thumbnail || "",
+      rating: courseData.rating || 0,
+      reviews: courseData.reviews || 0,
+      totalHours: Number(courseData.total_hours) || 0,
+      status: (courseData.status === 'published' || courseData.status === 'draft') 
+        ? courseData.status as 'published' | 'draft'
+        : "draft",
+      lastUpdated: courseData.updated_at,
+      price: courseData.price || 0,
+      tags: courseData.tags || [],
+      logo: courseData.logo || "",
+      bgColor: courseData.bg_color || "bg-blue-500"
+    }));
+    
+    return courses;
+  } catch (error) {
+    console.error("Error fetching recent courses:", error);
+    return [];
   }
 };

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
@@ -58,9 +59,10 @@ export const useForum = () => {
     { id: "resources", name: "Resources & Materials" }
   ]);
   const [loading, setLoading] = useState(false);
-  const { bookmarks: bookmarkedItems, toggleBookmark, isBookmarked } = useBookmarks();
+  const { bookmarks, toggleBookmark, isBookmarked } = useBookmarks();
   
-  const bookmarkedPosts = bookmarkedItems
+  // Update this to use BookmarkItem instead of Course
+  const bookmarkedPosts = bookmarks
     .filter(b => b.content_type === 'post')
     .map(b => b.content_id);
 

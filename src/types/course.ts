@@ -1,3 +1,4 @@
+
 export interface CourseLesson {
   id: string;
   title: string;
@@ -65,7 +66,7 @@ export interface Course {
   hoursCompleted?: number;
   totalHours: number;
   enrolled?: boolean;
-  status?: 'published' | 'draft';
+  status?: 'published' | 'draft';  // Ensuring this is correctly typed
   lastUpdated?: string;
   price?: number;
   tags?: string[];
@@ -88,4 +89,13 @@ export interface CourseFilterOptions {
     max: number;
   };
   rating: number;
+}
+
+// Add bookmark related interfaces
+export interface BookmarkItem {
+  content_id: string;
+  content_type: string;
+  title: string;
+  description: string;
+  thumbnail?: string;
 }

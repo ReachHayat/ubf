@@ -1,194 +1,154 @@
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, LineChart, Line } from "recharts";
-import { Users, BookOpen, FileCheck, MessageSquare } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  BarChart, 
+  Calendar, 
+  GraduationCap, 
+  Users 
+} from "lucide-react";
 import { getAdminStats } from "@/components/courses/CourseService";
+import { getRecentCourses } from "@/services/courseService";
+import { Course } from "@/types/course";
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
-    users: 0,
-    courses: 0,
-    assignments: 0,
-    messages: 0
+    totalCourses: 0,
+    publishedCourses: 0,
+    draftCourses: 0,
+    totalLessons: 0,
+    totalStudents: 0
   });
   
+  const [recentCourses, setRecentCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-
+  
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
+      setLoading(true);
+      
       try {
-        setLoading(true);
+        // Get statistics
         const adminStats = getAdminStats();
+        setStats(adminStats);
         
-        // Get user count from Supabase
-        const userCount = await adminStats.getUserCount();
-        
-        // Get messages count from Supabase
-        const messagesCount = await adminStats.getMessagesCount();
-        
-        setStats({
-          users: userCount,
-          courses: adminStats.courseCount,
-          assignments: adminStats.assignmentCount,
-          messages: messagesCount
-        });
+        // Get recent courses
+        const courses = await getRecentCourses();
+        setRecentCourses(courses);
       } catch (error) {
-        console.error("Error fetching admin stats:", error);
+        console.error("Error fetching admin data:", error);
       } finally {
         setLoading(false);
       }
     };
     
-    fetchStats();
+    fetchData();
   }, []);
-
-  // Generate realistic growth data based on real counts
-  const generateGrowthData = () => {
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"];
-    const growthFactor = 0.8;
-    
-    return months.map((name, i) => {
-      const factor = (i + 1) / months.length;
-      
-      return {
-        name,
-        users: Math.round(stats.users * factor * (0.7 + Math.random() * 0.6)),
-        courses: Math.round(stats.courses * factor * (0.7 + Math.random() * 0.6)),
-        assignments: Math.round(stats.assignments * factor * (0.7 + Math.random() * 0.6))
-      };
-    });
-  };
   
-  // Generate realistic usage data
-  const generateUsageData = () => {
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const baseValue = stats.users * 2;
-    
-    return days.map(name => {
-      let factor;
-      
-      if (name === "Sat" || name === "Sun") {
-        factor = 0.6 + Math.random() * 0.2; // Weekend has less activity
-      } else if (name === "Wed") {
-        factor = 0.9 + Math.random() * 0.2; // Middle of week has most activity
-      } else {
-        factor = 0.75 + Math.random() * 0.3;
-      }
-      
-      return {
-        name,
-        active: Math.round(baseValue * factor)
-      };
-    });
-  };
-  
-  const growthData = generateGrowthData();
-  const usageData = generateUsageData();
-  
-  // Calculate growth percentages
-  const userGrowth = growthData.length > 1 ? 
-    Math.round((growthData[growthData.length - 1].users - growthData[growthData.length - 2].users) / 
-    growthData[growthData.length - 2].users * 100) : 0;
-    
-  const courseGrowth = growthData.length > 0 ? 
-    growthData[growthData.length - 1].courses - growthData[growthData.length - 2].courses : 0;
-  
-  const assignmentGrowth = stats.assignments > 0 ? 
-    Math.round((stats.assignments / (stats.courses * 2)) * 100) : 0;
-
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{loading ? '...' : stats.users.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+{userGrowth}% from last month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Total Courses</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{loading ? '...' : stats.courses.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+{courseGrowth} new this month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Assignments</CardTitle>
-            <FileCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{loading ? '...' : stats.assignments.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+{assignmentGrowth}% completion rate</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Community Posts</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{loading ? '...' : stats.messages.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+{Math.round(stats.messages * 0.05)} this week</p>
-          </CardContent>
-        </Card>
+      <div>
+        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+        <p className="text-muted-foreground">Overview of your learning platform</p>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader>
-            <CardTitle>Platform Growth</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Courses</CardTitle>
+            <GraduationCap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={growthData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="users" fill="#8884d8" name="Users" />
-                  <Bar dataKey="courses" fill="#82ca9d" name="Courses" />
-                  <Bar dataKey="assignments" fill="#ffc658" name="Assignments" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <div className="text-2xl font-bold">{stats.totalCourses}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.publishedCourses} published, {stats.draftCourses} drafts
+            </p>
           </CardContent>
         </Card>
         
         <Card>
-          <CardHeader>
-            <CardTitle>Daily Active Users</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Lessons</CardTitle>
+            <BarChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={usageData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line 
-                    type="monotone" 
-                    dataKey="active" 
-                    stroke="#8884d8" 
-                    strokeWidth={2}
-                    name="Active Users"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="text-2xl font-bold">{stats.totalLessons}</div>
+            <p className="text-xs text-muted-foreground">
+              Across all courses
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Enrolled Students</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalStudents}</div>
+            <p className="text-xs text-muted-foreground">
+              Active learners on the platform
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Last Updated</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {new Date().toLocaleDateString()}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Platform statistics
+            </p>
           </CardContent>
         </Card>
       </div>
+      
+      <Tabs defaultValue="courses">
+        <TabsList>
+          <TabsTrigger value="courses">Recent Courses</TabsTrigger>
+          <TabsTrigger value="students">Recent Students</TabsTrigger>
+        </TabsList>
+        <TabsContent value="courses" className="mt-6">
+          {loading ? (
+            <div className="flex items-center justify-center h-40">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {recentCourses.slice(0, 6).map((course) => (
+                <Card key={course.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-4">
+                      <div className={`h-12 w-12 rounded-lg flex items-center justify-center ${course.bgColor || 'bg-blue-500'}`}>
+                        <span className="text-lg font-bold text-white">{course.logo || course.title.charAt(0)}</span>
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="font-medium truncate">{course.title}</h3>
+                        <p className="text-xs text-muted-foreground">
+                          {course.status === 'published' ? 'Published' : 'Draft'} • Last updated: {course.lastUpdated || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+        <TabsContent value="students" className="mt-6">
+          <Card>
+            <CardContent className="p-6">
+              <p className="text-center text-muted-foreground">Student enrollment data will be displayed here.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

@@ -14,7 +14,15 @@ export const getCourses = (): Course[] => {
 
 // Save courses to localStorage
 export const saveCourses = (courses: Course[]): void => {
-  localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(courses));
+  const validatedCourses = courses.map(course => {
+    return {
+      ...course,
+      status: course.status === 'published' || course.status === 'draft' 
+        ? course.status 
+        : 'draft' as 'published' | 'draft'
+    };
+  });
+  localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(validatedCourses));
 };
 
 // Get course by ID
@@ -314,7 +322,59 @@ export const deleteCourseLesson = (
   }
 };
 
-// Remove bookmark functionality since we're removing it
+// Add course assignment
+export const updateCourseAssignment = (courseId: string, assignment: CourseAssignment): void => {
+  const course = getCourseById(courseId);
+  if (course) {
+    if (!course.assignments) {
+      course.assignments = [];
+    }
+    
+    const index = course.assignments.findIndex(a => a.id === assignment.id);
+    
+    if (index !== -1) {
+      course.assignments[index] = assignment;
+    } else {
+      course.assignments.push(assignment);
+    }
+    
+    updateCourse(course);
+  }
+};
+
+// Delete course assignment
+export const deleteCourseAssignment = (courseId: string, assignmentId: string): void => {
+  const course = getCourseById(courseId);
+  if (course && course.assignments) {
+    course.assignments = course.assignments.filter(assignment => assignment.id !== assignmentId);
+    updateCourse(course);
+  }
+};
+
+// Add admin stats function for the AdminDashboard
+export const getAdminStats = () => {
+  const courses = getCourses();
+  const totalCourses = courses.length;
+  const publishedCourses = courses.filter(c => c.status === 'published').length;
+  const draftCourses = courses.filter(c => c.status === 'draft').length;
+  
+  let totalLessons = 0;
+  courses.forEach(course => {
+    if (course.sections) {
+      course.sections.forEach(section => {
+        totalLessons += section.lessons.length;
+      });
+    }
+  });
+  
+  return {
+    totalCourses,
+    publishedCourses,
+    draftCourses,
+    totalLessons,
+    totalStudents: 0 // This would need real data from a user database
+  };
+};
 
 // Mock courses data
 const mockCourses = [
