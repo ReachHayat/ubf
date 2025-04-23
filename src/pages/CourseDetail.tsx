@@ -500,10 +500,16 @@ const CourseDetail = () => {
     if (course && course.id) {
       markVideoAsWatched(course.id, lessonId);
       
-      const updatedCourse = getCourseById(course.id);
-      if (updatedCourse) {
-        setCourse(updatedCourse);
-      }
+      (async () => {
+        try {
+          const updatedCourse = await getCourseById(course.id);
+          if (updatedCourse) {
+            setCourse(updatedCourse);
+          }
+        } catch (error) {
+          console.error("Error fetching updated course:", error);
+        }
+      })();
     }
   };
   
