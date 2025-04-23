@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Category, Post } from "@/hooks/useForum";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogFooter 
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { 
+  Edit,
+  Trash2,
+  CheckCircle,
+  MessageSquare
+} from "lucide-react";
 
 const AdminCommunity: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -33,15 +50,20 @@ const AdminCommunity: React.FC = () => {
         id: "1",
         title: "Welcome to the Community Forum!",
         content: "This is the official community forum for our platform.",
-        user_id: "admin-123",
-        category_id: "general",
-        approved: true,
+        author: {
+          id: "admin-123",
+          name: "Admin User",
+          avatar: "",
+        },
         created_at: new Date().toISOString(),
         likes: 15,
+        comments: [],
+        tags: ["welcome"],
+        approved: true,
         user: {
           id: "admin-123",
-          email: "admin@example.com",
-          full_name: "Admin User"
+          full_name: "Admin User",
+          name: "Admin User"
         },
         category: mockCategories[0]
       },
@@ -49,15 +71,20 @@ const AdminCommunity: React.FC = () => {
         id: "3",
         title: "Free UX Design Resources",
         content: "I've compiled a list of free UX design resources.",
-        user_id: "user-789",
-        category_id: "resources",
-        approved: false,
+        author: {
+          id: "user-789",
+          name: "Design Enthusiast",
+          avatar: "",
+        },
         created_at: new Date(Date.now() - 172800000).toISOString(),
         likes: 0,
+        comments: [],
+        tags: ["design", "resources"],
+        approved: false,
         user: {
           id: "user-789",
-          email: "designer@example.com",
-          full_name: "Design Enthusiast"
+          full_name: "Design Enthusiast",
+          name: "Design Enthusiast"
         },
         category: mockCategories[2]
       }
