@@ -30,18 +30,22 @@ export const instructorService = {
       return null;
     }
 
-    // Transform the JSON to ensure the correct social_links structure
-    const socialLinks = (typeof data.social_links === 'object' && data.social_links !== null)
-      ? data.social_links
-      : { linkedin: '', twitter: '', website: '' };
+    // Parse social links from JSON safely
+    let socialLinks = { linkedin: '', twitter: '', website: '' };
+    
+    // Check if social_links is a valid object first
+    if (data.social_links && typeof data.social_links === 'object' && !Array.isArray(data.social_links)) {
+      const links = data.social_links as Record<string, any>;
+      socialLinks = {
+        linkedin: typeof links.linkedin === 'string' ? links.linkedin : '',
+        twitter: typeof links.twitter === 'string' ? links.twitter : '',
+        website: typeof links.website === 'string' ? links.website : '',
+      };
+    }
 
     return {
       ...data,
-      social_links: {
-        linkedin: socialLinks.linkedin || '',
-        twitter: socialLinks.twitter || '',
-        website: socialLinks.website || ''
-      }
+      social_links: socialLinks
     };
   },
 
@@ -75,17 +79,22 @@ export const instructorService = {
 
     // Transform all profiles to ensure the correct social_links structure
     return (data || []).map(profile => {
-      const socialLinks = (typeof profile.social_links === 'object' && profile.social_links !== null)
-        ? profile.social_links
-        : { linkedin: '', twitter: '', website: '' };
+      // Parse social links from JSON safely
+      let socialLinks = { linkedin: '', twitter: '', website: '' };
+      
+      // Check if social_links is a valid object first
+      if (profile.social_links && typeof profile.social_links === 'object' && !Array.isArray(profile.social_links)) {
+        const links = profile.social_links as Record<string, any>;
+        socialLinks = {
+          linkedin: typeof links.linkedin === 'string' ? links.linkedin : '',
+          twitter: typeof links.twitter === 'string' ? links.twitter : '',
+          website: typeof links.website === 'string' ? links.website : '',
+        };
+      }
       
       return {
         ...profile,
-        social_links: {
-          linkedin: socialLinks.linkedin || '',
-          twitter: socialLinks.twitter || '',
-          website: socialLinks.website || ''
-        }
+        social_links: socialLinks
       };
     });
   }
