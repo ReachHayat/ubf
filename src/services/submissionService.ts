@@ -34,7 +34,8 @@ export const submissionService = {
         user_id: user.id,
         submission_text: submission.text,
         submission_file_path: submission.filePath,
-        submission_url: submission.url
+        submission_url: submission.url,
+        status: 'submitted'
       });
 
     if (error) {
@@ -56,7 +57,15 @@ export const submissionService = {
       return [];
     }
 
-    return data || [];
+    // Transform the data to ensure the status matches the expected type
+    return (data || []).map(item => {
+      const submissionStatus = item.status === 'graded' ? 'graded' : 'submitted';
+      
+      return {
+        ...item,
+        status: submissionStatus
+      };
+    });
   },
 
   gradeSubmission: async (

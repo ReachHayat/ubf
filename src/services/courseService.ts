@@ -1,5 +1,7 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Course } from "@/types/course";
+import { enrollmentService } from "./enrollmentService";
 
 export const courseService = {
   getCourses: async (): Promise<Course[]> => {
@@ -45,6 +47,76 @@ export const courseService = {
     } catch (error) {
       console.error("Error fetching courses:", error);
       return [];
+    }
+  },
+
+  getCourseById: async (courseId: string): Promise<Course | null> => {
+    try {
+      const { data: courseData, error } = await supabase
+        .from('courses')
+        .select(`
+          *,
+          category:course_categories(name),
+          instructor:instructors(*),
+          sections:course_sections(
+            *,
+            lessons:course_lessons(*)
+          )
+        `)
+        .eq('id', courseId)
+        .single();
+      
+      if (error) {
+        console.error(`Error fetching course with ID ${courseId}:`, error);
+        return null;
+      }
+      
+      if (!courseData) {
+        return null;
+      }
+      
+      const course: Course = {
+        id: courseData.id,
+        title: courseData.title,
+        description: courseData.description || "",
+        category: courseData.category?.name || "Uncategorized",
+        instructor: {
+          id: courseData.instructor?.id || "",
+          name: courseData.instructor?.name || "Unknown",
+          role: courseData.instructor?.role || "Instructor",
+          avatar: courseData.instructor?.avatar || "",
+        },
+        thumbnail: courseData.thumbnail || "",
+        rating: courseData.rating || 0,
+        reviews: courseData.reviews || 0,
+        totalHours: Number(courseData.total_hours) || 0,
+        status: (courseData.status === 'published' || courseData.status === 'draft') 
+          ? courseData.status 
+          : "draft",
+        lastUpdated: courseData.updated_at,
+        price: courseData.price || 0,
+        tags: courseData.tags || [],
+        logo: courseData.logo || "",
+        bgColor: courseData.bg_color || "bg-blue-500",
+        sections: (courseData.sections || []).map(section => ({
+          id: section.id,
+          title: section.title,
+          duration: section.duration || "",
+          expanded: false,
+          lessons: (section.lessons || []).map(lesson => ({
+            id: lesson.id,
+            title: lesson.title,
+            duration: lesson.duration || "",
+            content: lesson.content || "",
+            videoUrl: lesson.video_url || ""
+          }))
+        }))
+      };
+      
+      return course;
+    } catch (error) {
+      console.error(`Error fetching course with ID ${courseId}:`, error);
+      return null;
     }
   },
 

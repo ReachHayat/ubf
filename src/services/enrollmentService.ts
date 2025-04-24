@@ -9,6 +9,11 @@ export interface CourseEnrollment {
   progress: number;
   completion_status: 'not_started' | 'in_progress' | 'completed';
   last_accessed_at: string;
+  courses?: {
+    title: string;
+    thumbnail: string;
+    description: string;
+  };
 }
 
 export const enrollmentService = {
@@ -49,19 +54,44 @@ export const enrollmentService = {
       return [];
     }
 
-    return data || [];
+    // Transform the data to ensure the completion_status matches the expected type
+    const enrollments: CourseEnrollment[] = (data || []).map(item => {
+      const status = item.completion_status || 'in_progress';
+      // Ensure status is one of the allowed values
+      const typedStatus: 'not_started' | 'in_progress' | 'completed' = 
+        ['not_started', 'in_progress', 'completed'].includes(status) 
+          ? (status as 'not_started' | 'in_progress' | 'completed') 
+          : 'in_progress';
+      
+      return {
+        ...item,
+        completion_status: typedStatus
+      };
+    });
+
+    return enrollments;
   },
 
   updateProgress: async (courseId: string, progress: number): Promise<boolean> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
 
+    // Determine the completion status based on progress
+    let completion_status: 'not_started' | 'in_progress' | 'completed';
+    if (progress === 100) {
+      completion_status = 'completed';
+    } else if (progress === 0) {
+      completion_status = 'not_started';
+    } else {
+      completion_status = 'in_progress';
+    }
+
     const { error } = await supabase
       .from('course_enrollments')
       .update({
         progress,
         last_accessed_at: new Date().toISOString(),
-        completion_status: progress === 100 ? 'completed' : 'in_progress'
+        completion_status
       })
       .eq('course_id', courseId)
       .eq('user_id', user.id);

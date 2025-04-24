@@ -30,7 +30,19 @@ export const instructorService = {
       return null;
     }
 
-    return data;
+    // Transform the JSON to ensure the correct social_links structure
+    const socialLinks = (typeof data.social_links === 'object' && data.social_links !== null)
+      ? data.social_links
+      : { linkedin: '', twitter: '', website: '' };
+
+    return {
+      ...data,
+      social_links: {
+        linkedin: socialLinks.linkedin || '',
+        twitter: socialLinks.twitter || '',
+        website: socialLinks.website || ''
+      }
+    };
   },
 
   updateInstructorProfile: async (userId: string, profile: Partial<InstructorProfile>): Promise<boolean> => {
@@ -61,6 +73,20 @@ export const instructorService = {
       return [];
     }
 
-    return data || [];
+    // Transform all profiles to ensure the correct social_links structure
+    return (data || []).map(profile => {
+      const socialLinks = (typeof profile.social_links === 'object' && profile.social_links !== null)
+        ? profile.social_links
+        : { linkedin: '', twitter: '', website: '' };
+      
+      return {
+        ...profile,
+        social_links: {
+          linkedin: socialLinks.linkedin || '',
+          twitter: socialLinks.twitter || '',
+          website: socialLinks.website || ''
+        }
+      };
+    });
   }
 };
