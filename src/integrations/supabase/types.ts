@@ -204,6 +204,65 @@ export type Database = {
         }
         Relationships: []
       }
+      course_enrollments: {
+        Row: {
+          completion_status: string | null
+          course_id: string | null
+          enrolled_at: string | null
+          id: string
+          last_accessed_at: string | null
+          progress: number | null
+          user_id: string | null
+        }
+        Insert: {
+          completion_status?: string | null
+          course_id?: string | null
+          enrolled_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          progress?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          completion_status?: string | null
+          course_id?: string | null
+          enrolled_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          progress?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_enrollments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_enrollments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "debug_user_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_enrollments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_online"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_enrollments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_with_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_lessons: {
         Row: {
           content: string | null
@@ -442,6 +501,64 @@ export type Database = {
         }
         Relationships: []
       }
+      instructor_profiles: {
+        Row: {
+          bio: string | null
+          created_at: string | null
+          education: string[] | null
+          expertise: string[] | null
+          id: string
+          social_links: Json | null
+          updated_at: string | null
+          user_id: string | null
+          website: string | null
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string | null
+          education?: string[] | null
+          expertise?: string[] | null
+          id?: string
+          social_links?: Json | null
+          updated_at?: string | null
+          user_id?: string | null
+          website?: string | null
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string | null
+          education?: string[] | null
+          expertise?: string[] | null
+          id?: string
+          social_links?: Json | null
+          updated_at?: string | null
+          user_id?: string | null
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instructor_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "debug_user_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instructor_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_online"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instructor_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_with_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       instructors: {
         Row: {
           avatar: string | null
@@ -490,6 +607,56 @@ export type Database = {
           },
           {
             foreignKeyName: "instructors_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_with_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_completions: {
+        Row: {
+          completed_at: string | null
+          id: string
+          lesson_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          id?: string
+          lesson_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          id?: string
+          lesson_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_completions_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "course_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_completions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "debug_user_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_completions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_online"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_completions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users_with_roles"
@@ -1034,6 +1201,10 @@ export type Database = {
       }
     }
     Functions: {
+      get_course_progress: {
+        Args: { user_id: string; course_id: string }
+        Returns: number
+      }
       get_user_assignment_progress: {
         Args: { user_id_param: string }
         Returns: {
@@ -1069,6 +1240,10 @@ export type Database = {
       }
       is_admin: {
         Args: { user_id: string }
+        Returns: boolean
+      }
+      is_enrolled_in_course: {
+        Args: { user_id: string; course_id: string }
         Returns: boolean
       }
     }

@@ -5,9 +5,8 @@ import {
   Users, 
   BookOpen, 
   FileText, 
-  MessageSquare, 
   Settings as SettingsIcon,
-  Home
+  LayoutDashboard
 } from "lucide-react";
 
 interface AdminMenuProps {
@@ -17,16 +16,15 @@ interface AdminMenuProps {
 
 const AdminMenu = ({ activeTab, setActiveTab }: AdminMenuProps) => {
   const menuItems = [
-    { icon: Home, label: "Dashboard", path: "/admin", id: "dashboard" },
+    { icon: LayoutDashboard, label: "Dashboard", path: "/admin", id: "dashboard" },
     { icon: Users, label: "Users", path: "/admin/users", id: "users" },
     { icon: BookOpen, label: "Courses", path: "/admin/courses", id: "courses" },
     { icon: FileText, label: "Assignments", path: "/admin/assignments", id: "assignments" },
-    { icon: MessageSquare, label: "Community", path: "/admin/community", id: "community" },
     { icon: SettingsIcon, label: "Settings", path: "/admin/settings", id: "settings" },
   ];
 
   return (
-    <TabsList className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-6">
+    <TabsList className="grid grid-cols-3 md:grid-cols-5 gap-2 mb-6">
       {menuItems.map((item) => (
         <Link key={item.id} to={item.path} className="w-full">
           <TabsTrigger 

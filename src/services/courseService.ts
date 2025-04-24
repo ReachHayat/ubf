@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { Course, CourseSection, CourseLesson } from "@/types/course";
+import { Course } from "@/types/course";
 
 export const courseService = {
   getCourses: async (): Promise<Course[]> => {
@@ -9,11 +9,7 @@ export const courseService = {
         .select(`
           *,
           category:course_categories(name),
-          instructor:instructors(*),
-          sections:course_sections(
-            *,
-            lessons:course_lessons(*)
-          )
+          instructor:instructors(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -42,20 +38,7 @@ export const courseService = {
         price: courseData.price || 0,
         tags: courseData.tags || [],
         logo: courseData.logo || "",
-        bgColor: courseData.bg_color || "bg-blue-500",
-        sections: (courseData.sections || []).map(section => ({
-          id: section.id,
-          title: section.title,
-          duration: section.duration || "",
-          lessons: (section.lessons || []).map(lesson => ({
-            id: lesson.id,
-            title: lesson.title,
-            duration: lesson.duration || "",
-            content: lesson.content || "",
-            videoUrl: lesson.video_url || "",
-            section_title: section.title
-          }))
-        }))
+        bgColor: courseData.bg_color || "bg-blue-500"
       }));
       
       return courses;
@@ -65,300 +48,123 @@ export const courseService = {
     }
   },
 
-  getCourseById: async (id: string): Promise<Course | null> => {
-    try {
-      const { data: courseData, error } = await supabase
-        .from('courses')
-        .select(`
-          *,
-          category:course_categories(name),
-          instructor:instructors(*),
-          sections:course_sections(
-            *,
-            lessons:course_lessons(*)
-          )
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      
-      if (!courseData) return null;
-      
-      // Transform the data to match the Course type
-      const course: Course = {
-        id: courseData.id,
-        title: courseData.title,
-        description: courseData.description || "",
-        category: courseData.category?.name || "Uncategorized",
-        instructor: {
-          id: courseData.instructor?.id || "",
-          name: courseData.instructor?.name || "Unknown",
-          role: courseData.instructor?.role || "Instructor",
-          avatar: courseData.instructor?.avatar || "",
-        },
-        thumbnail: courseData.thumbnail || "",
-        rating: courseData.rating || 0,
-        reviews: courseData.reviews || 0,
-        totalHours: Number(courseData.total_hours) || 0,
-        status: (courseData.status === 'published' || courseData.status === 'draft') 
-          ? courseData.status 
-          : "draft", // Ensure status is either 'published' or 'draft'
-        lastUpdated: courseData.updated_at,
-        price: courseData.price || 0,
-        tags: courseData.tags || [],
-        logo: courseData.logo || "",
-        bgColor: courseData.bg_color || "bg-blue-500",
-        sections: (courseData.sections || []).map(section => ({
-          id: section.id,
-          title: section.title,
-          duration: section.duration || "",
-          lessons: (section.lessons || []).map(lesson => ({
-            id: lesson.id,
-            title: lesson.title,
-            duration: lesson.duration || "",
-            content: lesson.content || "",
-            videoUrl: lesson.video_url || "",
-            section_title: section.title
-          }))
-        }))
-      };
-      
-      return course;
-    } catch (error) {
-      console.error("Error fetching course:", error);
-      return null;
+  filterAndSortCourses: (
+    courses: Course[],
+    searchQuery: string = "",
+    category: string = "All Categories",
+    sortBy: string = "Most Popular"
+  ): Course[] => {
+    let filteredCourses = courses;
+    
+    if (searchQuery) {
+      searchQuery = searchQuery.toLowerCase();
+      filteredCourses = filteredCourses.filter(
+        course => course.title.toLowerCase().includes(searchQuery) ||
+                course.description.toLowerCase().includes(searchQuery)
+      );
     }
+    
+    if (category !== "All Categories") {
+      filteredCourses = filteredCourses.filter(
+        course => course.category === category
+      );
+    }
+    
+    switch (sortBy) {
+      case "Most Popular":
+        filteredCourses.sort((a, b) => (b.reviews || 0) - (a.reviews || 0));
+        break;
+      case "Highest Rated":
+        filteredCourses.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        break;
+      case "Newest":
+        filteredCourses.sort((a, b) => {
+          return new Date(b.lastUpdated || "").getTime() - new Date(a.lastUpdated || "").getTime();
+        });
+        break;
+      case "Oldest":
+        filteredCourses.sort((a, b) => {
+          return new Date(a.lastUpdated || "").getTime() - new Date(b.lastUpdated || "").getTime();
+        });
+        break;
+      case "Price Low to High":
+        filteredCourses.sort((a, b) => (a.price || 0) - (b.price || 0));
+        break;
+      case "Price High to Low":
+        filteredCourses.sort((a, b) => (b.price || 0) - (a.price || 0));
+        break;
+      default:
+        break;
+    }
+    
+    return filteredCourses;
   },
 
-  createCourse: async (courseData: Partial<Course>): Promise<Course | null> => {
+  getAllCategories: async (): Promise<string[]> => {
     try {
-      // Transform the Course type to match the database schema
-      const dbCourseData = {
-        title: courseData.title || "New Course",
-        description: courseData.description,
-        category_id: courseData.category ? "some-default-id" : "some-default-id", // This needs to be a valid UUID
-        instructor_id: "some-default-id", // This needs to be a valid UUID
-        thumbnail: courseData.thumbnail,
-        logo: courseData.logo,
-        status: courseData.status === "published" ? "published" : "draft", // Ensure status is either 'published' or 'draft'
-        rating: courseData.rating,
-        reviews: courseData.reviews,
-        total_hours: courseData.totalHours,
-        price: courseData.price,
-        tags: courseData.tags,
-        bg_color: courseData.bgColor
-      };
-
       const { data, error } = await supabase
-        .from('courses')
-        .insert([dbCourseData])
-        .select()
-        .single();
-
+        .from('course_categories')
+        .select('name');
+      
       if (error) throw error;
       
-      if (!data) return null;
-      
-      // We need to fetch the complete course with related data
-      return await courseService.getCourseById(data.id);
-    } catch (error) {
-      console.error("Error creating course:", error);
-      return null;
-    }
-  },
-
-  updateCourse: async (id: string, courseData: Partial<Course>): Promise<Course | null> => {
-    try {
-      // Transform the Course type to match the database schema
-      const dbCourseData: Record<string, any> = {};
-      
-      if (courseData.title !== undefined) dbCourseData.title = courseData.title;
-      if (courseData.description !== undefined) dbCourseData.description = courseData.description;
-      if (courseData.thumbnail !== undefined) dbCourseData.thumbnail = courseData.thumbnail;
-      if (courseData.logo !== undefined) dbCourseData.logo = courseData.logo;
-      if (courseData.status !== undefined) {
-        // Ensure status is either 'published' or 'draft'
-        dbCourseData.status = courseData.status === "published" ? "published" : "draft";
+      if (!data || data.length === 0) {
+        return ["All Categories"];
       }
-      if (courseData.rating !== undefined) dbCourseData.rating = courseData.rating;
-      if (courseData.reviews !== undefined) dbCourseData.reviews = courseData.reviews;
-      if (courseData.totalHours !== undefined) dbCourseData.total_hours = courseData.totalHours;
-      if (courseData.price !== undefined) dbCourseData.price = courseData.price;
-      if (courseData.tags !== undefined) dbCourseData.tags = courseData.tags;
-      if (courseData.bgColor !== undefined) dbCourseData.bg_color = courseData.bgColor;
-
-      const { error } = await supabase
-        .from('courses')
-        .update(dbCourseData)
-        .eq('id', id);
-
-      if (error) throw error;
       
-      // Fetch the updated course with all related data
-      return await courseService.getCourseById(id);
+      return ["All Categories", ...data.map(category => category.name)];
     } catch (error) {
-      console.error("Error updating course:", error);
-      return null;
+      console.error("Error fetching categories:", error);
+      return ["All Categories"];
     }
   },
 
-  deleteCourse: async (id: string): Promise<boolean> => {
-    try {
-      const { error } = await supabase
-        .from('courses')
-        .delete()
-        .eq('id', id);
+  markLessonComplete: async (courseId: string, lessonId: string): Promise<boolean> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
 
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      console.error("Error deleting course:", error);
+    const { error } = await supabase
+      .from('lesson_completions')
+      .insert({
+        user_id: user.id,
+        lesson_id: lessonId
+      });
+
+    if (error && error.code !== '23505') { // Ignore unique violation errors
+      console.error('Error marking lesson as complete:', error);
       return false;
     }
-  }
-};
 
-// We're now using the courseNotesService for notes functionality
-import { courseNotesService } from "@/services/courseNotesService";
-import { bookmarkService } from "@/services/bookmarkService";
+    // Update enrollment progress
+    const { data: progress } = await supabase
+      .rpc('get_course_progress', {
+        user_id: user.id,
+        course_id: courseId
+      });
 
-// Update user's notes for a specific lesson
-export const updateUserNotes = async (userId: string, lessonId: string, courseId: string, noteContent: string): Promise<void> => {
-  return courseNotesService.updateUserNotes(userId, lessonId, courseId, noteContent);
-};
+    if (progress !== null) {
+      await enrollmentService.updateProgress(courseId, progress);
+    }
 
-// Get user notes for a specific lesson
-export const getUserNotes = async (userId: string, lessonId: string, courseId: string): Promise<string> => {
-  return courseNotesService.getUserNotes(userId, lessonId, courseId);
-};
+    return true;
+  },
 
-// Get all user notes
-export const getAllUserNotes = async (userId: string): Promise<{ lessonId: string, courseId: string, content: string, updatedAt: string }[]> => {
-  return courseNotesService.getAllUserNotes(userId);
-};
+  isLessonCompleted: async (lessonId: string): Promise<boolean> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
 
-// Check if course is bookmarked
-export const isCourseSaved = async (userId: string, courseId: string): Promise<boolean> => {
-  try {
-    if (!userId) {
+    const { data, error } = await supabase
+      .from('lesson_completions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('lesson_id', lessonId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking lesson completion:', error);
       return false;
     }
-    
-    return bookmarkService.checkBookmark(courseId, 'course');
-  } catch (error) {
-    console.error("Error checking if course is bookmarked:", error);
-    return false;
-  }
-};
 
-// Toggle course bookmark
-export const toggleCourseSaved = async (userId: string, course: Course): Promise<boolean> => {
-  try {
-    if (!userId) {
-      return false;
-    }
-    
-    return bookmarkService.toggleBookmark(
-      course.id,
-      'course',
-      course.title,
-      course.description || '',
-      course.thumbnail || ''
-    );
-  } catch (error) {
-    console.error("Error toggling course bookmark:", error);
-    return false;
-  }
-};
-
-// Toggle lesson bookmark
-export const toggleLessonSaved = async (
-  userId: string, 
-  courseId: string, 
-  lessonId: string,
-  title: string,
-  thumbnail?: string
-): Promise<boolean> => {
-  try {
-    if (!userId) {
-      return false;
-    }
-    
-    const course = await courseService.getCourseById(courseId);
-    const description = `Course: ${course?.title || courseId}`;
-    
-    return bookmarkService.toggleBookmark(
-      lessonId,
-      'lesson',
-      title,
-      description,
-      thumbnail || ''
-    );
-  } catch (error) {
-    console.error("Error toggling lesson bookmark:", error);
-    return false;
-  }
-};
-
-// Check if lesson is bookmarked
-export const isLessonSaved = async (userId: string, lessonId: string): Promise<boolean> => {
-  try {
-    if (!userId) {
-      return false;
-    }
-    
-    return bookmarkService.checkBookmark(lessonId, 'lesson');
-  } catch (error) {
-    console.error("Error checking if lesson is bookmarked:", error);
-    return false;
-  }
-};
-
-// Get recent courses
-export const getRecentCourses = async (): Promise<Course[]> => {
-  try {
-    const { data: coursesData, error } = await supabase
-      .from('courses')
-      .select(`
-        *,
-        category:course_categories(name),
-        instructor:instructors(*)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(6);
-
-    if (error) throw error;
-    
-    // Transform the data to match the Course type
-    const courses: Course[] = (coursesData || []).map(courseData => ({
-      id: courseData.id,
-      title: courseData.title,
-      description: courseData.description || "",
-      category: courseData.category?.name || "Uncategorized",
-      instructor: {
-        id: courseData.instructor?.id || "",
-        name: courseData.instructor?.name || "Unknown",
-        role: courseData.instructor?.role || "Instructor",
-        avatar: courseData.instructor?.avatar || "",
-      },
-      thumbnail: courseData.thumbnail || "",
-      rating: courseData.rating || 0,
-      reviews: courseData.reviews || 0,
-      totalHours: Number(courseData.total_hours) || 0,
-      status: (courseData.status === 'published' || courseData.status === 'draft') 
-        ? courseData.status as 'published' | 'draft'
-        : "draft",
-      lastUpdated: courseData.updated_at,
-      price: courseData.price || 0,
-      tags: courseData.tags || [],
-      logo: courseData.logo || "",
-      bgColor: courseData.bg_color || "bg-blue-500"
-    }));
-    
-    return courses;
-  } catch (error) {
-    console.error("Error fetching recent courses:", error);
-    return [];
+    return !!data;
   }
 };
