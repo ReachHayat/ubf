@@ -1,5 +1,5 @@
-
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/components/ui/use-toast";
 
 export interface InstructorProfile {
   id: string;
@@ -15,6 +15,9 @@ export interface InstructorProfile {
   };
   created_at: string;
   updated_at: string;
+  avatar_url?: string;
+  title?: string;
+  specialization?: string[];
 }
 
 export const instructorService = {
@@ -97,5 +100,78 @@ export const instructorService = {
         social_links: socialLinks
       };
     });
+  },
+
+  createOrUpdateInstructorProfile: async (profileData: Partial<InstructorProfile>): Promise<InstructorProfile | null> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "You must be logged in to update your profile",
+        variant: "destructive"
+      });
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from('instructor_profiles')
+      .upsert({
+        user_id: user.id,
+        ...profileData,
+        updated_at: new Date().toISOString()
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error updating instructor profile:', error);
+      toast({
+        title: "Profile Update Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+      return null;
+    }
+
+    toast({
+      title: "Profile Updated",
+      description: "Your instructor profile has been successfully updated",
+    });
+
+    return data;
+  },
+
+  uploadAvatarImage: async (file: File): Promise<string | null> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}/avatar.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, {
+        upsert: true
+      });
+
+    if (uploadError) {
+      console.error('Error uploading avatar:', uploadError);
+      toast({
+        title: "Upload Failed",
+        description: "Could not upload avatar image",
+        variant: "destructive"
+      });
+      return null;
+    }
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+    // Update profile with new avatar URL
+    await instructorService.createOrUpdateInstructorProfile({
+      avatar_url: data.publicUrl
+    });
+
+    return data.publicUrl;
   }
 };

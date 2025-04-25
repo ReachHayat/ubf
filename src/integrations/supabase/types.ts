@@ -503,34 +503,43 @@ export type Database = {
       }
       instructor_profiles: {
         Row: {
+          avatar_url: string | null
           bio: string | null
           created_at: string | null
           education: string[] | null
           expertise: string[] | null
           id: string
           social_links: Json | null
+          specialization: string[] | null
+          title: string | null
           updated_at: string | null
           user_id: string | null
           website: string | null
         }
         Insert: {
+          avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
           education?: string[] | null
           expertise?: string[] | null
           id?: string
           social_links?: Json | null
+          specialization?: string[] | null
+          title?: string | null
           updated_at?: string | null
           user_id?: string | null
           website?: string | null
         }
         Update: {
+          avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
           education?: string[] | null
           expertise?: string[] | null
           id?: string
           social_links?: Json | null
+          specialization?: string[] | null
+          title?: string | null
           updated_at?: string | null
           user_id?: string | null
           website?: string | null
