@@ -6,12 +6,12 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import AdminMenu from "@/components/admin/AdminMenu";
 
 // Admin sub-pages
-import AdminDashboard from "./admin/AdminDashboard";
-import AdminUsers from "./admin/AdminUsers";
-import AdminCourses from "./admin/AdminCourses";
-import AdminAssignments from "./admin/AdminAssignments";
-import AdminSettings from "./admin/AdminSettings";
-import CourseEnrollments from "./admin/CourseEnrollments";
+import AdminDashboard from "@/pages/admin/AdminDashboard";
+import AdminUsers from "@/pages/admin/AdminUsers";
+import AdminCourses from "@/pages/admin/AdminCourses";
+import AdminAssignments from "@/pages/admin/AdminAssignments";
+import AdminSettings from "@/pages/admin/AdminSettings";
+import CourseEnrollments from "@/pages/admin/CourseEnrollments";
 
 const Admin = () => {
   const location = useLocation();
