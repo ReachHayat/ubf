@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Home } from "@/pages/Home";
 import Courses from "@/pages/Courses";
 import CourseContent from "@/pages/CourseContent";
+import CoursePreview from "@/pages/CoursePreview";
 import { AuthProvider } from '@/contexts/AuthContext';
 import Auth from '@/pages/Auth';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -25,6 +26,7 @@ const App = () => {
             <Route element={<AppLayout />}>
               <Route path="/" element={<Home />} />
               <Route path="/courses" element={<Courses />} />
+              <Route path="/course/preview/:courseId" element={<CoursePreview />} />
               <Route path="/course/:courseId/:lessonId?" element={<CourseContent />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
