@@ -10,10 +10,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 
+// Create an interface for the form data that has string fields for expertise and education
+interface InstructorProfileFormData {
+  bio: string;
+  website: string | null;
+  expertise: string; // This will be a comma-separated string in the form
+  education: string; // This will be a comma-separated string in the form
+}
+
 export const InstructorProfileForm: React.FC = () => {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Partial<InstructorProfile>>({});
-  const { register, handleSubmit, setValue } = useForm<InstructorProfile>();
+  const { register, handleSubmit, setValue } = useForm<InstructorProfileFormData>();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -23,14 +31,14 @@ export const InstructorProfileForm: React.FC = () => {
           setProfile(currentProfile);
           setValue('bio', currentProfile.bio || '');
           setValue('website', currentProfile.website || '');
-          // Convert arrays to string for the form if they exist
-          setValue('expertise', currentProfile.expertise ? currentProfile.expertise.join(', ') : '');
-          setValue('education', currentProfile.education ? currentProfile.education.join(', ') : '');
+          // Convert arrays to comma-separated strings for the form
+          setValue('expertise', Array.isArray(currentProfile.expertise) ? currentProfile.expertise.join(', ') : '');
+          setValue('education', Array.isArray(currentProfile.education) ? currentProfile.education.join(', ') : '');
         }
       }
     };
     fetchProfile();
-  }, [user]);
+  }, [user, setValue]);
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -42,7 +50,7 @@ export const InstructorProfileForm: React.FC = () => {
     }
   };
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: InstructorProfileFormData) => {
     const profileData = {
       ...data,
       // Convert comma-separated strings back to arrays
