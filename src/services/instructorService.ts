@@ -48,7 +48,10 @@ export const instructorService = {
 
     return {
       ...data,
-      social_links: socialLinks
+      social_links: socialLinks,
+      // Ensure expertise and education are arrays
+      expertise: Array.isArray(data.expertise) ? data.expertise : [],
+      education: Array.isArray(data.education) ? data.education : []
     };
   },
 
@@ -113,11 +116,15 @@ export const instructorService = {
       return null;
     }
 
+    // Ensure social_links is properly formatted as an object
+    const socialLinks = profileData.social_links || { linkedin: '', twitter: '', website: '' };
+
     const { data, error } = await supabase
       .from('instructor_profiles')
       .upsert({
         user_id: user.id,
         ...profileData,
+        social_links: socialLinks,
         updated_at: new Date().toISOString()
       })
       .select('*')
@@ -138,7 +145,15 @@ export const instructorService = {
       description: "Your instructor profile has been successfully updated",
     });
 
-    return data;
+    // Ensure we format the returned data correctly
+    return {
+      ...data,
+      social_links: typeof data.social_links === 'object' ? 
+        data.social_links as InstructorProfile['social_links'] : 
+        { linkedin: '', twitter: '', website: '' },
+      expertise: Array.isArray(data.expertise) ? data.expertise : [],
+      education: Array.isArray(data.education) ? data.education : []
+    };
   },
 
   uploadAvatarImage: async (file: File): Promise<string | null> => {

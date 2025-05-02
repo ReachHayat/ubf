@@ -23,8 +23,9 @@ export const InstructorProfileForm: React.FC = () => {
           setProfile(currentProfile);
           setValue('bio', currentProfile.bio || '');
           setValue('website', currentProfile.website || '');
-          setValue('expertise', currentProfile.expertise?.join(', ') || '');
-          setValue('education', currentProfile.education?.join(', ') || '');
+          // Convert arrays to string for the form if they exist
+          setValue('expertise', currentProfile.expertise ? currentProfile.expertise.join(', ') : '');
+          setValue('education', currentProfile.education ? currentProfile.education.join(', ') : '');
         }
       }
     };
@@ -41,11 +42,12 @@ export const InstructorProfileForm: React.FC = () => {
     }
   };
 
-  const onSubmit = async (data: InstructorProfile) => {
+  const onSubmit = async (data: any) => {
     const profileData = {
       ...data,
-      expertise: data.expertise ? data.expertise.split(',').map(e => e.trim()) : [],
-      education: data.education ? data.education.split(',').map(e => e.trim()) : []
+      // Convert comma-separated strings back to arrays
+      expertise: data.expertise ? data.expertise.split(',').map((e: string) => e.trim()) : [],
+      education: data.education ? data.education.split(',').map((e: string) => e.trim()) : []
     };
 
     const updatedProfile = await instructorService.createOrUpdateInstructorProfile(profileData);

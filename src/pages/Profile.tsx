@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InstructorProfileForm } from "@/components/instructor/InstructorProfileForm";
 import { UserProfilePreview } from "@/components/profile/UserProfilePreview";
@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const Profile: React.FC = () => {
   const { user, roles } = useAuth();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   return (
     <div className="container mx-auto p-6">
@@ -19,7 +20,11 @@ const Profile: React.FC = () => {
           )}
         </TabsList>
         <TabsContent value="profile">
-          <UserProfilePreview />
+          <UserProfilePreview 
+            userId={user?.id || ''} 
+            open={isProfileOpen} 
+            onOpenChange={setIsProfileOpen} 
+          />
         </TabsContent>
         {(roles.includes('admin') || roles.includes('tutor')) && (
           <TabsContent value="instructor">
